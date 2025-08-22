@@ -21,6 +21,8 @@ services:
         - LOGGING_LEVEL=DEBUG
     networks:
       - testing_net
+    volumes:
+        - ./server/config.ini:config.ini
 EOL
 
 #Agregar clientes
@@ -35,6 +37,8 @@ for i in $(seq 1 $CANTIDAD_CLIENTES); do
         - CLI_LOG_LEVEL=DEBUG
     networks:
       - testing_net
+    volumes:
+      - ./client/config.yaml:/config.yaml
     depends_on:
       - server
 EOL
