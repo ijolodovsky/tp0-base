@@ -22,7 +22,7 @@ services:
     networks:
       - testing_net
     volumes:
-        - ./server/config.ini:config.ini
+        - ./server/config.ini:/config.ini
 EOL
 
 #Agregar clientes
@@ -54,5 +54,3 @@ networks:
       config:
         - subnet: 172.25.125.0/24
 EOL
-
-echo "Archivo $OUTPUT_FILE generado con $CANTIDAD_CLIENTES clientes."
