@@ -1,0 +1,13 @@
+#!/bin/bash
+
+RESULT=$(echo "hello" | docker run --rm --network testing_net busybox nc server 12345)
+
+if [ "$RESULT" == "hello" ]; then
+  echo "action: test_echo_server | result: success"
+else
+  echo "action: test_echo_server | result: fail"
+fi
+
+docker stop server
+docker rm server
+docker network rm testing_net
