@@ -1,6 +1,5 @@
 import socket
 import logging
-import signal
 
 class Server:
     def __init__(self, port, listen_backlog):
@@ -11,8 +10,6 @@ class Server:
         self.running = True
 
     def run(self):
-
-        signal.signal(signal.SIGTERM, self.handle_sigterm())
         """
         Dummy Server loop
 
@@ -27,10 +24,7 @@ class Server:
             client_sock = self.__accept_new_connection()
             self.__handle_client_connection(client_sock)
 
-    def handle_sigterm(self):
-        """
-        Handle SIGTERM signal for graceful shutdown
-        """
+    def handle_sigterm(self, signum, frame):
         logging.info(f'action: shutdown | result: in_progress')
         self._server_socket.close()
         self.running = False
