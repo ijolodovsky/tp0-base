@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
 	"time"
 	"syscall"
@@ -121,7 +122,7 @@ func main() {
 		client.Stop()
 	}()
 
-	client.StartClientLoop()
+	client.StartClientLoop(sigchan)
 
 	log.Infof("action: exit | result: success | client_id: %v", client.config.ID)
 
