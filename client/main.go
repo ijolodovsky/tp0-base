@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"syscall"
 
 	"github.com/op/go-logging"
 	"github.com/pkg/errors"
@@ -111,5 +112,15 @@ func main() {
 	}
 
 	client := common.NewClient(clientConfig)
+
+	sigchan := make(chan os.Signal, 1)
+	signal.Notify(sigchan, syscall.SIGTERM)
+
+	go func() {
+		<-sigchan
+		client.Stop()
+		os.Exit(0)
+	}()
+
 	client.StartClientLoop()
 }
