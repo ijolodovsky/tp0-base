@@ -119,8 +119,10 @@ func main() {
 	go func() {
 		<-sigchan
 		client.Stop()
-		os.Exit(0)
 	}()
 
 	client.StartClientLoop()
+
+	log.Infof("action: exit | result: success | client_id: %v", client.config.ID)
+
 }

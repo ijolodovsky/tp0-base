@@ -100,11 +100,10 @@ func (c *Client) Stop() {
 		c.conn.Close()
 	}
 
-	select{
+	select {
 		case <-c.stop:
 			//no hacer nada
 		default:
 			close(c.stop)
 	}
-	log.Infof("action: exit | result: success | client_id: %v", c.config.ID)
 }
