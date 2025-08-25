@@ -77,11 +77,19 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 			c.conn.Close()
 
 			if err != nil {
-				log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
-					c.config.ID,
-					err,
-				)
-				return
+				select{
+				case <-sigChan:
+					break
+				case <-c.stop:
+					break
+				default:
+					log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
+						c.config.ID,
+						err,
+					)
+					return
+				}
+				
 			}
 
 			log.Infof("action: receive_message | result: success | client_id: %v | msg: %v",
