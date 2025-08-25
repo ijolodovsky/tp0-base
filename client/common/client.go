@@ -23,7 +23,6 @@ type ClientConfig struct {
 type Client struct {
 	config ClientConfig
 	conn   net.Conn
-	stop   chan struct{}
 }
 
 // NewClient Initializes a new client receiving the configuration
@@ -31,7 +30,6 @@ type Client struct {
 func NewClient(config ClientConfig) *Client {
 	client := &Client{
 		config: config,
-		stop:   make(chan struct{}),
 	}
 	return client
 }
@@ -59,7 +57,6 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 	for msgID := 1; msgID <= c.config.LoopAmount; msgID++ {
 		select {
 		case <-sigChan:
-			c.Stop()
 			log.Infof("action: shutdown | result: success")
 			return
 		default:
@@ -79,9 +76,8 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 			if err != nil {
 				select{
 				case <-sigChan:
-					break
-				case <-c.stop:
-					break
+					log.Infof("action: exit | result: success | client_id: %v", c.config.ID)
+					return
 				default:
 					log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
 						c.config.ID,
@@ -110,10 +106,5 @@ func (c *Client) Stop() {
 		c.conn.Close()
 	}
 
-	select {
-		case <-c.stop:
-			//no hacer nada
-		default:
-			close(c.stop)
-	}
+	log.Infof("action: exit | result: success | client_id: %v", client.config.ID)
 }

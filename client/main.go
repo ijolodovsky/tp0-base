@@ -125,6 +125,4 @@ func main() {
 
 	client.StartClientLoop(sigchan)
 
-	log.Infof("action: exit | result: success | client_id: %v", client.config.ID)
-
 }
