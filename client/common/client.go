@@ -99,5 +99,12 @@ func (c *Client) Stop() {
 	if c.conn != nil {
 		c.conn.Close()
 	}
-	close(c.stop)
+
+	select{
+		case <-c.stop:
+			//no hacer nada
+		default:
+			close(c.stop)
+	}
+	log.Infof("action: exit | result: success | client_id: %v", c.config.ID)
 }
