@@ -21,7 +21,10 @@ class Server:
         # TODO: Modify this program to handle signal to graceful shutdown
         # the server
         while self.running:
-            client_sock = self.__accept_new_connection()
+            try:
+                client_sock = self.__accept_new_connection()
+            except OSError:
+                break
             self.__handle_client_connection(client_sock)
 
     def handle_sigterm(self, signum, frame):
