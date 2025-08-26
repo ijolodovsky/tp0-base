@@ -2,8 +2,8 @@ import signal
 import socket
 import logging
 
-from .common.utils import store_bets
-from .protocol import read_bet, send_ack
+from common.utils import store_bets
+from protocol.protocol import read_bet, send_ack
 
 class Server:
     def __init__(self, port, listen_backlog):
