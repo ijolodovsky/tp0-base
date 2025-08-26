@@ -113,6 +113,7 @@ func main() {
 		DocNumber: os.Getenv("DOCUMENTO"),
 		BirthDate: os.Getenv("NACIMIENTO"),
 		Number:   numero,
+	}
 
 	clientConfig := common.ClientConfig{
 		ServerAddress: v.GetString("server.address"),
@@ -121,7 +122,7 @@ func main() {
 		LoopPeriod:    v.GetDuration("loop.period"),
 	}
 
-	client := common.NewClient(clientConfig)
+	client := common.NewClient(clientConfig, bet)
 
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, syscall.SIGTERM)
