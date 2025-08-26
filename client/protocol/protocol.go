@@ -3,6 +3,7 @@ package protocol
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
 	"net"
 )
 
@@ -26,11 +27,11 @@ func SendBet(conn net.Conn, bet Bet) error {
 	binary.BigEndian.PutUint16(header, length)
 
 	// Enviamos primero el header, luego el payload
-	if _, err := conn.Write(header); err != nil {
-		return err
+	if err := writeAll(conn, header); err != nil {
+		return fmt.Errorf("error sending header: %w", err)
 	}
-	if _, err := conn.Write(data); err != nil {
-		return err
+	if err := writeAll(conn, data); err != nil {
+		return fmt.Errorf("error sending payload: %w", err)
 	}
 
 	return nil
@@ -39,14 +40,37 @@ func SendBet(conn net.Conn, bet Bet) error {
 // ReceiveAck lee los 4 bytes de confirmación del servidor
 func ReceiveAck(conn net.Conn) (int, error) {
 	buf := make([]byte, 4)
-	n, err := conn.Read(buf)
-	if err != nil {
-		return 0, err
-	}
-	if n != 4 {
-		return 0, fmt.Errorf("expected 4 bytes ACK, got %d", n)
+	if err := readAll(conn, buf); err != nil {
+		return 0, fmt.Errorf("error reading ACK: %w", err)
 	}
 
 	ackNumber := int(binary.BigEndian.Uint32(buf))
 	return ackNumber, nil
+}
+
+func writeAll(conn net.Conn, data []byte) error {
+	totalWritten := 0
+	for totalWritten < len(data) {
+		n, err := conn.Write(data[totalWritten:])
+		if err != nil {
+			return err
+		}
+		totalWritten += n
+	}
+	return nil
+}
+
+func readAll(conn net.Conn, buf []byte) error {
+	totalRead := 0
+	for totalRead < len(buf) {
+		n, err := conn.Read(buf[totalRead:])
+		if err != nil {
+			if err == io.EOF && totalRead > 0 {
+				return fmt.Errorf("unexpected EOF, read %d bytes of %d", totalRead, len(buf))
+			}
+			return err
+		}
+		totalRead += n
+	}
+	return nil
 }

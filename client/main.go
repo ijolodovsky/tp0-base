@@ -105,19 +105,29 @@ func main() {
 	// Print program config with debugging purposes
 	PrintConfig(v)
 
-	numero, _ := strconv.Atoi(os.Getenv("NUMERO"))
+	docNumber, err := strconv.Atoi(os.Getenv("DOCUMENTO"))
+	if err != nil {
+		log.Criticalf("Could not parse DOCUMENTO: %v", err)
+		os.Exit(1)
+	}
+
+	numero, err := strconv.Atoi(os.Getenv("NUMERO"))
+	if err != nil {
+		log.Criticalf("Could not parse NUMERO env var as number: %v", err)
+		os.Exit(1)
+	}
 	bet := common.Bet{
-		Agency:    1,
+		Agency:    agencyID,
 		Name: os.Getenv("NOMBRE"),
 		Surname: os.Getenv("APELLIDO"),
-		DocNumber: os.Getenv("DOCUMENTO"),
+		DocNumber: docNumber,
 		BirthDate: os.Getenv("NACIMIENTO"),
 		Number:   numero,
 	}
 
 	clientConfig := common.ClientConfig{
 		ServerAddress: v.GetString("server.address"),
-		ID:            v.GetString("id"),
+		ID:            clientID,
 		LoopAmount:    1,
 		LoopPeriod:    v.GetDuration("loop.period"),
 	}

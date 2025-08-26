@@ -14,16 +14,16 @@ def read_bet(sock) -> Bet:
     text = data.decode('utf-8')
 
     fields = text.split('|')
-    if len(fields) != 6:
-        raise ValueError("Invalid bet received")
+    if len(fields) != 5:
+        raise ValueError(f"Invalid bet received, expected 5 fields but got {len(fields)}")
 
     return Bet(
-        agency=fields[0],
-        first_name=fields[1],
-        last_name=fields[2],
-        document=fields[3],
-        birthdate=fields[4],
-        number=fields[5]
+        agency=1,  # Default agency, or you can get it from client connection
+        first_name=fields[0],
+        last_name=fields[1], 
+        document=int(fields[2]),
+        birthdate=fields[3],
+        number=int(fields[4])
     )
 
 def _read_n_bytes(sock, n: int) -> bytes:
@@ -43,4 +43,15 @@ def send_ack(sock, bet: Bet):
     Envía un ACK de 4 bytes big-endian con el número de la apuesta.
     """
     ack = struct.pack('>I', bet.number)
-    sock.sendall(ack)
+    _send_all(sock, ack)
+
+def _send_all(sock, data: bytes):
+    """
+    Envía todos los datos, maneja short writes.
+    """
+    total_sent = 0
+    while total_sent < len(data):
+        sent = sock.send(data[total_sent:])
+        if sent == 0:
+            raise ConnectionError("Socket connection broken")
+        total_sent += sent

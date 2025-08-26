@@ -1,7 +1,6 @@
 package common
 
 import (
-	"fmt"
 	"net"
 	"os"
 	"time"
@@ -15,6 +14,8 @@ var log = logging.MustGetLogger("log")
 type ClientConfig struct {
 	ID            string
 	ServerAddress string
+	LoopAmount    int
+	LoopPeriod    time.Duration
 }
 
 type Client struct {
@@ -78,6 +79,7 @@ func (c *Client) StartClient(sigChan chan os.Signal) {
 func (c *Client) Stop() {
 	if c.conn != nil {
 		c.conn.Close()
+		log.Infof("action: close_connection | result: success | client_id: %v", c.config.ID)
 	}
 
 	log.Infof("action: exit | result: success | client_id: %v", c.config.ID)
