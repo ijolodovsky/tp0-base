@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"time"
 
 	"github.com/op/go-logging"
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/protocol"
@@ -75,5 +76,10 @@ func (c *Client) StartClient(sigChan chan os.Signal) {
 }
 
 func (c *Client) Stop() {
+	if c.conn != nil {
+		c.conn.Close()
+	}
+
 	log.Infof("action: exit | result: success | client_id: %v", c.config.ID)
 }
+
