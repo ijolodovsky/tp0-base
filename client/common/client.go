@@ -62,22 +62,29 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 			return
 		default:
 			// Create the connection the server in every loop iteration. Send an
-			c.createClientSocket()
+			if err := c.createClientSocket(); err != nil {
+				return
+			}
 
 			// TODO: Modify the send to avoid short-write
-			fmt.Fprintf(
+			_, err := fmt.Fprintf(
 				c.conn,
 				"[CLIENT %v] Message N°%v\n",
 				c.config.ID,
 				msgID,
 			)
+			if err != nil {
+				log.Errorf("action: send_message | result: fail | client_id: %v | error: %v", c.config.ID, err)
+				c.conn.Close()
+				return
+			}
+
 			msg, err := bufio.NewReader(c.conn).ReadString('\n')
 			c.conn.Close()
 
 			if err != nil {
 				select{
 				case <-sigChan:
-					log.Infof("action: exit | result: success | client_id: %v", c.config.ID)
 					return
 				default:
 					log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
