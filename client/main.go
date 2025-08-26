@@ -37,7 +37,6 @@ func InitConfig() (*viper.Viper, error) {
 	v.BindEnv("id")
 	v.BindEnv("server", "address")
 	v.BindEnv("loop", "period")
-	v.BindEnv("loop", "amount")
 	v.BindEnv("log", "level")
 
 	// Try to read configuration from config file. If config file
@@ -86,7 +85,6 @@ func PrintConfig(v *viper.Viper) {
 	log.Infof("action: config | result: success | client_id: %s | server_address: %s | loop_amount: %v | loop_period: %v | log_level: %s",
 		v.GetString("id"),
 		v.GetString("server.address"),
-		v.GetInt("loop.amount"),
 		v.GetDuration("loop.period"),
 		v.GetString("log.level"),
 	)
@@ -107,14 +105,24 @@ func main() {
 	// Print program config with debugging purposes
 	PrintConfig(v)
 
+	numero, _ := strconv.Atoi(os.Getenv("NUMERO"))
+	bet := common.Bet{
+		Agency:    1,
+		Name: os.Getenv("NOMBRE"),
+		Surname: os.Getenv("APELLIDO"),
+		DocNumber: os.Getenv("DOCUMENTO"),
+		BirthDate: os.Getenv("NACIMIENTO"),
+		Number:   numero,
+	}
+
 	clientConfig := common.ClientConfig{
 		ServerAddress: v.GetString("server.address"),
 		ID:            v.GetString("id"),
-		LoopAmount:    v.GetInt("loop.amount"),
+		LoopAmount:    1,
 		LoopPeriod:    v.GetDuration("loop.period"),
 	}
 
-	client := common.NewClient(clientConfig)
+	client := common.NewClient(clientConfig, bet)
 
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, syscall.SIGTERM)
