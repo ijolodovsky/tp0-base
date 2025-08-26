@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"net"
+	"os"
 	"time"
 
 	"github.com/op/go-logging"
@@ -85,6 +86,7 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 			if err != nil {
 				select{
 				case <-sigChan:
+					log.Infof("action: shutdown | result: success")
 					return
 				default:
 					log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
