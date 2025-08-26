@@ -120,7 +120,6 @@ func main() {
 	go func() {
 		<-sigchan
 		client.Stop()
-		os.Exit(0)
 	}()
 
 	client.StartClientLoop(sigchan)

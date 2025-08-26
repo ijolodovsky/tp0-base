@@ -54,6 +54,7 @@ func (c *Client) createClientSocket() error {
 func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 	// There is an autoincremental msgID to identify every message sent
 	// Messages if the message amount threshold has not been surpassed
+	defer c.Stop()
 	for msgID := 1; msgID <= c.config.LoopAmount; msgID++ {
 		select {
 		case <-sigChan:
@@ -106,5 +107,5 @@ func (c *Client) Stop() {
 		c.conn.Close()
 	}
 
-	log.Infof("action: exit | result: success | client_id: %v", client.config.ID)
+	log.Infof("action: exit | result: success | client_id: %v", c.config.ID)
 }
