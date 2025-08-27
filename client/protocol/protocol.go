@@ -6,23 +6,23 @@ import (
 	"io"
 	"net"
 
-	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/common"
+	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/model"
 )
 
 // SendBet envía la apuesta usando el protocolo de longitud-prefijada
-func SendBet(conn net.Conn, bet Bet) error {
+func SendBet(conn net.Conn, bet model.Bet) error {
 	// Armamos el payload como string separado por "|" en el orden compatible con Python
-	payload := fmt.Sprintf("%d|%s|%s|%s|%s|%d",
-		bet.Agency,     // agency
-		bet.FirstName,  // first_name
-		bet.LastName,   // last_name
-		bet.Document,   // document (string)
-		bet.BirthDate,  // birthdate (YYYY-MM-DD)
-		bet.Number,     // number
-	)
+       payload := fmt.Sprintf("%d|%s|%s|%s|%s|%d",
+	       bet.AgencyId,
+	       bet.Name,
+	       bet.LastName,
+	       bet.Document,
+	       bet.BirthDate,
+	       bet.Number,
+       )
 
 	data := []byte(payload)
-	length := uint16(len(data)) // max 65535 bytes
+	length := uint16(len(data))
 
 	// Preparamos el header de 2 bytes big-endian
 	header := make([]byte, 2)

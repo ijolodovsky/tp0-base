@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/op/go-logging"
+	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/model"
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/protocol"
 )
 
@@ -20,11 +21,11 @@ type ClientConfig struct {
 
 type Client struct {
 	config ClientConfig
-	bet    Bet
+	bet    model.Bet
 	conn   net.Conn
 }
 
-func NewClient(config ClientConfig, bet Bet) *Client {
+func NewClient(config ClientConfig, bet model.Bet) *Client {
 	return &Client{
 		config: config,
 		bet:    bet,
@@ -70,11 +71,11 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 			return
 		}
 
-		if ack == c.bet.Number {
-			log.Infof("action: apuesta_enviada | result: success | dni: %s | numero: %d", c.bet.DocNumber, c.bet.Number)
-		} else {
-			log.Errorf("action: apuesta_enviada | result: fail | dni: %s | numero: %d", c.bet.DocNumber, c.bet.Number)
-		}
+	       if ack == c.bet.Number {
+		       log.Infof("action: apuesta_enviada | result: success | dni: %s | numero: %d", c.bet.Document, c.bet.Number)
+	       } else {
+		       log.Errorf("action: apuesta_enviada | result: fail | dni: %s | numero: %d", c.bet.Document, c.bet.Number)
+	       }
 	}
 }
 

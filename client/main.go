@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 
+	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/model"
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/common"
 )
 
@@ -23,7 +24,7 @@ var log = logging.MustGetLogger("log")
 // config file ./config.yaml. Environment variables takes precedence over parameters
 // defined in the configuration file. If some of the variables cannot be parsed,
 // an error is returned
-func InitConfig() (*viper.Viper, error) {
+func InitConfig() (*viper.Viper, model.Bet, error) {
 	v := viper.New()
 
 	// Configure viper to read env variables with the CLI_ prefix
@@ -53,7 +54,7 @@ func InitConfig() (*viper.Viper, error) {
 	// Parse time.Duration variables and return an error if those variables cannot be parsed
 
 	if _, err := time.ParseDuration(v.GetString("loop.period")); err != nil {
-		return nil, errors.Wrapf(err, "Could not parse CLI_LOOP_PERIOD env var as time.Duration.")
+		return nil, model.Bet{}, errors.Wrapf(err, "Could not parse CLI_LOOP_PERIOD env var as time.Duration.")
 	}
 
 	bet_name := os.Getenv("NOMBRE")
@@ -62,13 +63,23 @@ func InitConfig() (*viper.Viper, error) {
 	bet_birthdate := os.Getenv("NACIMIENTO")
 	bet_number := os.Getenv("NUMERO")
 
-	bet := common.Bet{
-		AgencyId: v.GetString("id"),
+	id, err := strconv.Atoi(v.GetString("id"))
+	if err != nil {
+		return nil, model.Bet{}, fmt.Errorf("id inválido: %w", err)
+	}
+
+	number, err := strconv.Atoi(bet_number)
+	if err != nil {
+		return nil, model.Bet{}, fmt.Errorf("número inválido: %w", err)
+	}
+
+	bet := model.Bet{
+		AgencyId: id,
 		Name:     bet_name,
 		LastName: bet_lastname,
 		Document: bet_document,
 		BirthDate: bet_birthdate,
-		Number:    bet_number,
+		Number:    number,
 	}
 
 	return v, bet, nil

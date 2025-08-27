@@ -1,8 +1,8 @@
-package common
+package model
 
 type Bet struct {
-	Agency    int
-	FirstName string
+	AgencyId    int
+	Name string
 	LastName  string
 	Document  string
 	BirthDate string
