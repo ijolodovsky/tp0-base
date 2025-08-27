@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net"
+
+	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/common"
 )
 
 // SendBet envía la apuesta usando el protocolo de longitud-prefijada
