@@ -33,17 +33,19 @@ func NewClient(config ClientConfig, bet Bet) *Client {
 
 // createClientSocket inicializa la conexión
 func (c *Client) createClientSocket() error {
-	conn, err := net.Dial("tcp", c.config.ServerAddress)
-	if err != nil {
-		log.Errorf("action: connect | result: fail | client_id: %v | error: %v", c.config.ID, err)
-		return err
-	}
-	c.conn = conn
-	return nil
+       log.Debugf("intentando conectar a %s", c.config.ServerAddress)
+       conn, err := net.Dial("tcp", c.config.ServerAddress)
+       if err != nil {
+	       log.Errorf("action: connect | result: fail | client_id: %v | error: %v", c.config.ID, err)
+	       return err
+       }
+       log.Debugf("conexión exitosa a %s", c.config.ServerAddress)
+       c.conn = conn
+       return nil
 }
 
 // StartClient inicia el cliente y maneja la señal de apagado
-func (c *Client) StartClient(sigChan chan os.Signal) {
+func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 	select {
 	case <-sigChan:
 		log.Infof("action: shutdown | result: success")

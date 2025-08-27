@@ -38,6 +38,7 @@ func InitConfig() (*viper.Viper, error) {
 	v.BindEnv("id")
 	v.BindEnv("server", "address")
 	v.BindEnv("loop", "period")
+	v.BindEnv("loop", "amount")
 	v.BindEnv("log", "level")
 
 	// Try to read configuration from config file. If config file
@@ -55,7 +56,22 @@ func InitConfig() (*viper.Viper, error) {
 		return nil, errors.Wrapf(err, "Could not parse CLI_LOOP_PERIOD env var as time.Duration.")
 	}
 
-	return v, nil
+	bet_name := os.Getenv("NOMBRE")
+	bet_lastname := os.Getenv("APELLIDO")
+	bet_document := os.Getenv("DOCUMENTO")
+	bet_birthdate := os.Getenv("NACIMIENTO")
+	bet_number := os.Getenv("NUMERO")
+
+	bet := common.Bet{
+		AgencyId: v.GetString("id"),
+		Name:     bet_name,
+		LastName: bet_lastname,
+		Document: bet_document,
+		BirthDate: bet_birthdate,
+		Number:    bet_number,
+	}
+
+	return v, bet, nil
 }
 
 // InitLogger Receives the log level to be set in go-logging as a string. This method
@@ -92,7 +108,7 @@ func PrintConfig(v *viper.Viper) {
 }
 
 func main() {
-	v, err := InitConfig()
+	v, bet, err := InitConfig()
 	if err != nil {
 		log.Criticalf("%s", err)
 		os.Exit(1)
@@ -103,39 +119,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	sigchan := make(chan os.Signal, 1)
+	signal.Notify(sigchan, syscall.SIGTERM)
+
 	// Print program config with debugging purposes
 	PrintConfig(v)
 
-	numero, err := strconv.Atoi(os.Getenv("NUMERO"))
-	if err != nil {
-		log.Criticalf("Could not parse NUMERO env var as number: %v", err)
-		os.Exit(1)
-	}
-	agencyID, err := strconv.Atoi(os.Getenv("AGENCY"))
-	if err != nil {
-		log.Criticalf("Could not parse AGENCY: %v", err)
-		os.Exit(1)
-	}
-	bet := common.Bet{
-		Agency:    agencyID,
-		FirstName: os.Getenv("NOMBRE"),
-		LastName:  os.Getenv("APELLIDO"),
-		Document:  os.Getenv("DOCUMENTO"),
-		BirthDate: os.Getenv("NACIMIENTO"),
-		Number:    numero,
-	}
-
 	clientConfig := common.ClientConfig{
 		ServerAddress: v.GetString("server.address"),
-		ID:            clientID,
-		LoopAmount:    1,
+		ID:            v.GetString("id"),
+		LoopAmount:    v.GetInt("loop.amount"),
 		LoopPeriod:    v.GetDuration("loop.period"),
 	}
 
 	client := common.NewClient(clientConfig, bet)
-
-	sigchan := make(chan os.Signal, 1)
-	signal.Notify(sigchan, syscall.SIGTERM)
 
 	go func() {
 		<-sigchan

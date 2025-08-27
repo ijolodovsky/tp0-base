@@ -12,6 +12,7 @@ class Server:
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
         self.running = True
+        self.client_connections = []
 
         signal.signal(signal.SIGTERM, self.handle_sigterm)
 

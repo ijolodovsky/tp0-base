@@ -22,7 +22,6 @@ services:
       - DOCUMENTO=12345678
       - NACIMIENTO=1990-01-01
       - NUMERO=42
-      - AGENCY=100
     networks:
       - testing_net
     depends_on:
