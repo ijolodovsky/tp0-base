@@ -13,18 +13,25 @@ def read_bet(sock) -> Bet:
     data = _read_n_bytes(sock, message_length)
     text = data.decode('utf-8')
 
-    fields = text.split('|')
-    if len(fields) != 6:
-        raise ValueError(f"Invalid bet received, expected 5 fields but got {len(fields)}")
+    # divido el payload en las distintas apuestas
+    bets_raw = text.split('\n')
+    bets = []
 
-    return Bet(
-        agency=fields[0],  # Default agency, or you can get it from client connection
-        first_name=fields[1],
-        last_name=fields[2],
-        document=int(fields[3]),
-        birthdate=fields[4],
-        number=int(fields[5])
-    )
+    for line in bets_raw:
+        fields = line.split('|')
+        if len(fields) != 6:
+            raise ValueError(f"Invalid bet received, expected 6 fields but got {len(fields)}")
+        bet = Bet(
+            agency=fields[0],
+            first_name=fields[1],
+            last_name=fields[2],
+            document=int(fields[3]),
+            birthdate=fields[4],
+            number=int(fields[5])
+        )
+        bets.append(bet)
+
+    return bets
 
 def _read_n_bytes(sock, n: int) -> bytes:
     """
@@ -38,11 +45,15 @@ def _read_n_bytes(sock, n: int) -> bytes:
         buf += chunk
     return buf
 
-def send_ack(sock, bet: Bet):
+def send_ack(sock, bets: list[Bet]):
     """
-    Envía un ACK de 4 bytes big-endian con el número de la apuesta.
+    Envía un ACK de 4 bytes big-endian con el número de la ultima apuesta como confirmacion.
     """
-    ack = struct.pack('>I', bet.number)
+    if not bets:
+        return
+
+    ack_number = bets[-1].number
+    ack = struct.pack('>I', ack_number)
     _send_all(sock, ack)
 
 def _send_all(sock, data: bytes):

@@ -9,18 +9,24 @@ import (
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/model"
 )
 
-// SendBet envía la apuesta usando el protocolo de longitud-prefijada
-func SendBet(conn net.Conn, bet model.Bet) error {
+// SendBets envía las apuestas usando el protocolo de longitud-prefijada
+func SendBets(conn net.Conn, bets []model.Bet) error {
 	// Armamos el payload como string separado por "|" en el orden compatible con Python
-       payload := fmt.Sprintf("%d|%s|%s|%s|%s|%d",
+    var payload string
+	for i, bet := range bets{
+		line := fmt.Sprintf("%d|%s|%s|%s|%s|%d",
 	       bet.AgencyId,
 	       bet.Name,
 	       bet.LastName,
 	       bet.Document,
 	       bet.BirthDate,
 	       bet.Number,
-       )
-
+	)
+	if i > 0 {
+		payload += "\n"
+	}
+	}   
+	
 	data := []byte(payload)
 	length := uint16(len(data))
 
