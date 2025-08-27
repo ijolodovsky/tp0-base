@@ -96,12 +96,12 @@ func main() {
 	v, err := InitConfig()
 	if err != nil {
 		log.Criticalf("%s", err)
-		os.Exit(1)
+		return
 	}
 
 	if err := InitLogger(v.GetString("log.level")); err != nil {
 		log.Criticalf("%s", err)
-		os.Exit(1)
+		return
 	}
 
 	// Print program config with debugging purposes
@@ -126,6 +126,7 @@ func main() {
 
 	client.StartClientLoop(sigchan)
 
-	os.Exit(0)
+	// return at the end to allow deferred functions to run
+	return
 
 }
