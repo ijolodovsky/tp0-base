@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"time"
 	"syscall"
@@ -105,24 +106,23 @@ func main() {
 	// Print program config with debugging purposes
 	PrintConfig(v)
 
-	docNumber, err := strconv.Atoi(os.Getenv("DOCUMENTO"))
-	if err != nil {
-		log.Criticalf("Could not parse DOCUMENTO: %v", err)
-		os.Exit(1)
-	}
-
 	numero, err := strconv.Atoi(os.Getenv("NUMERO"))
 	if err != nil {
 		log.Criticalf("Could not parse NUMERO env var as number: %v", err)
 		os.Exit(1)
 	}
+	agencyID, err := strconv.Atoi(os.Getenv("AGENCY"))
+	if err != nil {
+		log.Criticalf("Could not parse AGENCY: %v", err)
+		os.Exit(1)
+	}
 	bet := common.Bet{
 		Agency:    agencyID,
-		Name: os.Getenv("NOMBRE"),
-		Surname: os.Getenv("APELLIDO"),
-		DocNumber: docNumber,
+		FirstName: os.Getenv("NOMBRE"),
+		LastName:  os.Getenv("APELLIDO"),
+		Document:  os.Getenv("DOCUMENTO"),
 		BirthDate: os.Getenv("NACIMIENTO"),
-		Number:   numero,
+		Number:    numero,
 	}
 
 	clientConfig := common.ClientConfig{
