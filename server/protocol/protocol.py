@@ -14,16 +14,16 @@ def read_bet(sock) -> Bet:
     text = data.decode('utf-8')
 
     fields = text.split('|')
-    if len(fields) != 5:
+    if len(fields) != 6:
         raise ValueError(f"Invalid bet received, expected 5 fields but got {len(fields)}")
 
     return Bet(
-        agency=1,  # Default agency, or you can get it from client connection
-        first_name=fields[0],
-        last_name=fields[1], 
-        document=int(fields[2]),
-        birthdate=fields[3],
-        number=int(fields[4])
+        agency=fields[0],  # Default agency, or you can get it from client connection
+        first_name=fields[1],
+        last_name=fields[2],
+        document=int(fields[3]),
+        birthdate=fields[4],
+        number=int(fields[5])
     )
 
 def _read_n_bytes(sock, n: int) -> bytes:
