@@ -1,9 +1,10 @@
 package common
 
-type Bet struct{
-	Name string
-	Surname string
-	DocNumber int
+type Bet struct {
+	Agency    int
+	FirstName string
+	LastName  string
+	Document  string
 	BirthDate string
-	Number int
+	Number    int
 }

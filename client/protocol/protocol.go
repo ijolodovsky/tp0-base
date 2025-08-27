@@ -9,14 +9,14 @@ import (
 
 // SendBet envía la apuesta usando el protocolo de longitud-prefijada
 func SendBet(conn net.Conn, bet Bet) error {
-	// Armamos el payload como string separado por "|"
+	// Armamos el payload como string separado por "|" en el orden compatible con Python
 	payload := fmt.Sprintf("%d|%s|%s|%s|%s|%d",
-		bet.Agency,
-		bet.Name,
-		bet.Surname,
-		bet.DocNumber,
-		bet.BirthDate,
-		bet.Number,
+		bet.Agency,     // agency
+		bet.FirstName,  // first_name
+		bet.LastName,   // last_name
+		bet.Document,   // document (string)
+		bet.BirthDate,  // birthdate (YYYY-MM-DD)
+		bet.Number,     // number
 	)
 
 	data := []byte(payload)
