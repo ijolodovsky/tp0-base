@@ -59,11 +59,6 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 		//se pospone la ejecucion hasta el final de la función.
 		defer c.conn.Close()
 
-		// se usa SendBets de protocol
-		if err := protocol.SendBets(c.conn, c.bets); err != nil {
-			log.Errorf("action: send_bets | result: fail | client_id: %v | error: %v", c.config.ID, err)
-			return
-		}
 
 		for i := 0; i < len(c.bets); i += c.config.BatchMaxAmount {
 			end := i + c.config.BatchMaxAmount

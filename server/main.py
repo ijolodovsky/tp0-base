@@ -32,6 +32,16 @@ def initialize_config():
     except ValueError as e:
         raise ValueError("Key could not be parsed. Error: {}. Aborting server".format(e))
 
+    batch_max_amount = 10 #por defecto
+    try:
+        with open("config.yaml", "r") as f:
+            config = yaml.safe_load(f)
+            if config and "batch" in config and "maxAmount" in config["batch"]:
+                batch_max_amount = config["batch"]["maxAmount"]
+    except Exception as e:
+        logging.warning(f"Could not read batch maxAmount from config.yaml, using default value. Error: {e}")
+
+    config_params["batch_max_amount"] = batch_max_amount
     return config_params
 
 
@@ -40,16 +50,17 @@ def main():
     logging_level = config_params["logging_level"]
     port = config_params["port"]
     listen_backlog = config_params["listen_backlog"]
+    batch_max_amount = config_params["batch_max_amount"]
 
     initialize_log(logging_level)
 
     # Log config parameters at the beginning of the program to verify the configuration
     # of the component
     logging.debug(f"action: config | result: success | port: {port} | "
-                  f"listen_backlog: {listen_backlog} | logging_level: {logging_level}")
+                  f"listen_backlog: {listen_backlog} | logging_level: {logging_level} | batch_max_amount: {batch_max_amount}")
 
     # Initialize server and start server loop
-    server = Server(port, listen_backlog)
+    server = Server(port, listen_backlog, batch_max_amount)
     signal.signal(signal.SIGTERM, server.handle_sigterm)
     server.run()
 

@@ -22,6 +22,7 @@ services:
       - testing_net
     volumes:
         - ./server/config.ini:/config.ini
+        - ./data:/data
 EOL
 
 #Agregar clientes
@@ -34,16 +35,11 @@ for i in $(seq 1 $CANTIDAD_CLIENTES); do
     environment:
       - CLI_ID=$i
       - CLI_LOG_LEVEL=DEBUG
-      - NOMBRE=Nombre$i
-      - APELLIDO=Apellido$i
-      - DOCUMENTO=1000000$i
-      - NACIMIENTO=1990-01-0$i
-      - NUMERO=$((40 + $i))
-      - AGENCY=$i
     networks:
       - testing_net
     volumes:
       - ./client/config.yaml:/config.yaml
+      - ./data:/data
     depends_on:
       - server
 EOL

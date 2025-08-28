@@ -40,19 +40,19 @@ class Server:
         client socket will also be closed
         """
         try:
-            bet = read_bets(client_sock, self.batch_max_amount)
+            bets = read_bets(client_sock, self.batch_max_amount)
 
             if len(bets) > self.batch_max_amount:
                 logging.error(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)} | error: too_many_bets")
-                send_ack(client_sock, None)
                 return
             
-            store_bets(bets)
-            logging.info(f"action: apuesta_almacenada | result: success | cantidad: {len(bets)}")
-            
-            last_bet = bets[-1]
-            send_ack(client_sock, last_bet)
-            
+            try:
+                store_bets(bets)
+                logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
+                send_ack(client_sock, bets)
+            except Exception as store_error:
+                logging.error(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)} | error: {store_error}")
+
         except Exception as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")
         finally:
