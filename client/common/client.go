@@ -17,18 +17,19 @@ type ClientConfig struct {
 	ServerAddress string
 	LoopAmount    int
 	LoopPeriod    time.Duration
+	BatchMaxAmount int
 }
 
 type Client struct {
 	config ClientConfig
-	bet    model.Bet
+	bets   []model.Bet
 	conn   net.Conn
 }
 
-func NewClient(config ClientConfig, bet model.Bet) *Client {
+func NewClient(config ClientConfig, bets []model.Bet) *Client {
 	return &Client{
 		config: config,
-		bet:    bet,
+		bets:   bets,
 	}
 }
 
@@ -58,24 +59,38 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 		//se pospone la ejecucion hasta el final de la función.
 		defer c.conn.Close()
 
-		// se usa SendBet de protocol
-		if err := protocol.SendBet(c.conn, c.bet); err != nil {
-			log.Errorf("action: send_bet | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		// se usa SendBets de protocol
+		if err := protocol.SendBets(c.conn, c.bets); err != nil {
+			log.Errorf("action: send_bets | result: fail | client_id: %v | error: %v", c.config.ID, err)
 			return
 		}
 
-		// se usa ReceiveAck de protocol
-		ack, err := protocol.ReceiveAck(c.conn)
-		if err != nil {
-			log.Errorf("action: receive_ack | result: fail | client_id: %v | error: %v", c.config.ID, err)
-			return
-		}
+		for i := 0; i < len(c.bets); i += c.config.BatchMaxAmount {
+			end := i + c.config.BatchMaxAmount
+			if end > len(c.bets) {
+				end = len(c.bets)
+			}
+			chunk := c.bets[i:end]
 
-	       if ack == c.bet.Number {
-		       log.Infof("action: apuesta_enviada | result: success | dni: %s | numero: %d", c.bet.Document, c.bet.Number)
-	       } else {
-		       log.Errorf("action: apuesta_enviada | result: fail | dni: %s | numero: %d", c.bet.Document, c.bet.Number)
-	       }
+			if err := protocol.SendBets(c.conn, chunk); err != nil {
+				log.Errorf("action: send_bets | result: fail | client_id: %v | error: %v", c.config.ID, err)
+				return
+			}
+
+			// se usa ReceiveAck de protocol
+			ack, err := protocol.ReceiveAck(c.conn)
+			if err != nil {
+				log.Errorf("action: receive_ack | result: fail | client_id: %v | error: %v", c.config.ID, err)
+				return
+			}
+
+			lastBet := chunk[len(chunk)-1]
+			if ack == lastBet.Number {
+				log.Infof("action: apuestas_enviadas | result: success | cantidad: %d | client_id: %v", len(chunk), c.config.ID)
+			} else {
+				log.Errorf("action: apuestas_enviadas | result: fail | cantidad: %d | client_id: %v", len(chunk), c.config.ID)
+			}
+		}
 	}
 }
 

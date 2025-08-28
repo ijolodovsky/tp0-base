@@ -12,21 +12,22 @@ import (
 // SendBets envía las apuestas usando el protocolo de longitud-prefijada
 func SendBets(conn net.Conn, bets []model.Bet) error {
 	// Armamos el payload como string separado por "|" en el orden compatible con Python
-    var payload string
-	for i, bet := range bets{
+	var payload string
+	for i, bet := range bets {
 		line := fmt.Sprintf("%d|%s|%s|%s|%s|%d",
-	       bet.AgencyId,
-	       bet.Name,
-	       bet.LastName,
-	       bet.Document,
-	       bet.BirthDate,
-	       bet.Number,
-	)
-	if i > 0 {
-		payload += "\n"
+			bet.AgencyId,
+			bet.Name,
+			bet.LastName,
+			bet.Document,
+			bet.BirthDate,
+			bet.Number,
+		)
+		if i > 0 {
+			payload += "\n"
+		}
+		payload += line
 	}
-	}   
-	
+
 	data := []byte(payload)
 	length := uint16(len(data))
 

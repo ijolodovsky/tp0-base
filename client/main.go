@@ -1,20 +1,22 @@
 package main
 
 import (
+	"encoding/csv"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"strconv"
 	"strings"
-	"time"
 	"syscall"
+	"time"
 
 	"github.com/op/go-logging"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 
-	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/model"
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/common"
+	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/model"
 )
 
 var log = logging.MustGetLogger("log")
@@ -24,7 +26,7 @@ var log = logging.MustGetLogger("log")
 // config file ./config.yaml. Environment variables takes precedence over parameters
 // defined in the configuration file. If some of the variables cannot be parsed,
 // an error is returned
-func InitConfig() (*viper.Viper, model.Bet, error) {
+func InitConfig() (*viper.Viper, []model.Bet, error) {
 	v := viper.New()
 
 	// Configure viper to read env variables with the CLI_ prefix
@@ -54,35 +56,57 @@ func InitConfig() (*viper.Viper, model.Bet, error) {
 	// Parse time.Duration variables and return an error if those variables cannot be parsed
 
 	if _, err := time.ParseDuration(v.GetString("loop.period")); err != nil {
-		return nil, model.Bet{}, errors.Wrapf(err, "Could not parse CLI_LOOP_PERIOD env var as time.Duration.")
+		return nil, nil, errors.Wrapf(err, "Could not parse CLI_LOOP_PERIOD env var as time.Duration.")
 	}
-
-	bet_name := os.Getenv("NOMBRE")
-	bet_lastname := os.Getenv("APELLIDO")
-	bet_document := os.Getenv("DOCUMENTO")
-	bet_birthdate := os.Getenv("NACIMIENTO")
-	bet_number := os.Getenv("NUMERO")
 
 	id, err := strconv.Atoi(v.GetString("id"))
 	if err != nil {
-		return nil, model.Bet{}, fmt.Errorf("id inválido: %w", err)
+		return nil, nil, fmt.Errorf("id inválido: %w", err)
 	}
 
-	number, err := strconv.Atoi(bet_number)
+	filePath := fmt.Sprintf("./data/agency-%d.csv", id)
+	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, model.Bet{}, fmt.Errorf("número inválido: %w", err)
+		return nil, nil, fmt.Errorf("error opening file: %w", err)
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	reader.Comma = ','
+
+	if _, err := reader.Read(); err != nil {
+		return nil, nil, fmt.Errorf("error reading CSV header: %w", err)
 	}
 
-	bet := model.Bet{
-		AgencyId: id,
-		Name:     bet_name,
-		LastName: bet_lastname,
-		Document: bet_document,
-		BirthDate: bet_birthdate,
-		Number:    number,
+	var bets []model.Bet
+	for {
+		record, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			return nil, nil, fmt.Errorf("error reading CSV record: %w", err)
+		}
+
+		number, err := strconv.Atoi(record[4])
+		if err != nil {
+			return nil, nil, fmt.Errorf("número inválido: %w", err)
+		}
+
+		bet := model.Bet{
+			AgencyId: id,
+			Name:    record[0],
+			LastName: record[1],
+			Document: record[2],
+			BirthDate: record[3],
+			Number: number,
+		}
+
+		bets = append(bets, bet)
 	}
 
-	return v, bet, nil
+	return v, bets, nil
 }
 
 // InitLogger Receives the log level to be set in go-logging as a string. This method
@@ -119,7 +143,7 @@ func PrintConfig(v *viper.Viper) {
 }
 
 func main() {
-	v, bet, err := InitConfig()
+	v, bets, err := InitConfig()
 	if err != nil {
 		log.Criticalf("%s", err)
 		os.Exit(1)
@@ -143,7 +167,7 @@ func main() {
 		LoopPeriod:    v.GetDuration("loop.period"),
 	}
 
-	client := common.NewClient(clientConfig, bet)
+	client := common.NewClient(clientConfig, bets)
 
 	go func() {
 		<-sigchan
