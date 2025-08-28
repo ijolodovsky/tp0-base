@@ -1,9 +1,9 @@
 import struct
 from common.utils import Bet
 
-def read_bet(sock) -> Bet:
+def read_bets(sock) -> list[Bet]:
     """
-    Lee una apuesta enviada por el cliente usando longitud-prefijada (2 bytes) y separador '|'.
+    Lee las apuestas enviadas por el cliente usando longitud-prefijada (2 bytes) y separador '|'.
     """
     header = _read_n_bytes(sock, 2)
     if not header:

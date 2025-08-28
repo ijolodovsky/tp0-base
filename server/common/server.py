@@ -3,15 +3,16 @@ import socket
 import logging
 
 from common.utils import store_bets
-from protocol.protocol import read_bet, send_ack
+from protocol.protocol import read_bet, read_bets, send_ack
 
 class Server:
-    def __init__(self, port, listen_backlog):
+    def __init__(self, port, listen_backlog, batch_max_amount=10):
         # Initialize server socket
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
         self.running = True
+        self.batch_max_amount = batch_max_amount
         self.client_connections = []
 
         signal.signal(signal.SIGTERM, self.handle_sigterm)
@@ -39,10 +40,19 @@ class Server:
         client socket will also be closed
         """
         try:
-            bet = read_bet(client_sock)
-            store_bets([bet])
-            logging.info(f"action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}")
-            send_ack(client_sock, bet)
+            bet = read_bets(client_sock, self.batch_max_amount)
+
+            if len(bets) > self.batch_max_amount:
+                logging.error(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)} | error: too_many_bets")
+                send_ack(client_sock, None)
+                return
+            
+            store_bets(bets)
+            logging.info(f"action: apuesta_almacenada | result: success | cantidad: {len(bets)}")
+            
+            last_bet = bets[-1]
+            send_ack(client_sock, last_bet)
+            
         except Exception as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")
         finally:
