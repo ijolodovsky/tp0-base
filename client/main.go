@@ -65,7 +65,7 @@ func InitConfig() (*viper.Viper, []model.Bet, error) {
 		return nil, nil, fmt.Errorf("id inválido: %w", err)
 	}
 
-	filePath := fmt.Sprintf("./data/agency-%d.csv", id)
+	filePath := fmt.Sprintf("./.data/agency-%d.csv", id)
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error opening file: %w", err)

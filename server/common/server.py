@@ -3,7 +3,7 @@ import socket
 import logging
 
 from common.utils import store_bets
-from protocol.protocol import read_bet, read_bets, send_ack
+from protocol.protocol import read_bets, send_ack
 
 class Server:
     def __init__(self, port, listen_backlog, batch_max_amount=10):

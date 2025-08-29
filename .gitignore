@@ -5,3 +5,7 @@
 bin/
 
 .data/agency*
+
+# Python bytecode
+__pycache__/
+*.py[cod]
