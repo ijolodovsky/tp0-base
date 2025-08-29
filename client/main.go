@@ -46,9 +46,14 @@ func InitConfig() (*viper.Viper, []model.Bet, error) {
 	// does not exists then ReadInConfig will fail but configuration
 	// can be loaded from the environment variables so we shouldn't
 	// return an error in that case
-	v.SetConfigFile("/config.yaml")
+	configPath := "/config.yaml"
+	v.SetConfigFile(configPath)
 	if err := v.ReadInConfig(); err != nil {
-		fmt.Printf("Configuration could not be read from config file. Using env variables instead")
+		fmt.Printf("Configuration could not be read from config file. Using env variables instead\n")
+	} else {
+		absPath, _ := os.Getwd()
+		fmt.Printf("[DEBUG] Config file loaded: %s (cwd: %s)\n", configPath, absPath)
+		fmt.Printf("[DEBUG] batch.maxAmount leído: %d\n", v.GetInt("batch.maxAmount"))
 	}
 
 	// Parse time.Duration variables and return an error if those variables cannot be parsed
@@ -66,7 +71,7 @@ func InitConfig() (*viper.Viper, []model.Bet, error) {
 
 	reader := csv.NewReader(file)
 	reader.Comma = ','
-	
+
 	var bets []model.Bet
 	for {
 		record, err := reader.Read()

@@ -28,6 +28,7 @@ class Server:
             except OSError:
                 pass
         self.running = False
+        os._exit(0)
 
     def handle_sigterm(self, signum, frame):
         logging.info(f'action: shutdown | result: in_progress')
@@ -45,8 +46,13 @@ class Server:
                 try:
                     bets = read_bets(client_sock, self.batch_max_amount)
                 except Exception as e:
-                    logging.error(f"action: receive_message | result: fail | error: {e}")
-                    break
+                    # Si el error es por socket cerrado, loguear como info, no como error
+                    if "Socket closed before reading all bytes" in str(e):
+                        logging.info("action: client_disconnected | result: success | motivo: socket cerrado por el cliente (EOF)")
+                        break
+                    else:
+                        logging.error(f"action: receive_message | result: fail | error: {e}")
+                        break
 
                 if len(bets) > self.batch_max_amount:
                     logging.error(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)} | error: too_many_bets")
