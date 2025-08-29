@@ -41,7 +41,7 @@ class Server:
                 try:
                     bets = read_bets(client_sock, self.batch_max_amount)
                 except ConnectionError:
-                    # El cliente cerró la conexión
+                    logging.info("action: client_disconnected | result: success | motivo: socket cerrado por el cliente")
                     break
                 except Exception as e:
                     logging.error(f"action: receive_message | result: fail | error: {e}")
