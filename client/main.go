@@ -66,11 +66,7 @@ func InitConfig() (*viper.Viper, []model.Bet, error) {
 
 	reader := csv.NewReader(file)
 	reader.Comma = ','
-
-	if _, err := reader.Read(); err != nil {
-		return nil, nil, fmt.Errorf("error reading CSV header: %w", err)
-	}
-
+	
 	var bets []model.Bet
 	for {
 		record, err := reader.Read()
