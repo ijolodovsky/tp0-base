@@ -3,8 +3,7 @@ package common
 import (
 	"net"
 	"os"
-	"time"
-
+	
 	"github.com/op/go-logging"
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/model"
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/protocol"
@@ -15,8 +14,6 @@ var log = logging.MustGetLogger("log")
 type ClientConfig struct {
 	ID            string
 	ServerAddress string
-	LoopAmount    int
-	LoopPeriod    time.Duration
 	BatchMaxAmount int
 }
 

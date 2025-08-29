@@ -9,10 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/op/go-logging"
-	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/common"
@@ -40,7 +38,7 @@ func InitConfig() (*viper.Viper, []model.Bet, error) {
 	// Add env variables supported
 	v.BindEnv("id")
 	v.BindEnv("server", "address")
-	v.BindEnv("loop", "period")
+	// v.BindEnv("loop", "period") // Solo se lee de config.yaml, no del entorno
 	v.BindEnv("loop", "amount")
 	v.BindEnv("log", "level")
 	v.BindEnv("batch", "maxAmount")
@@ -55,10 +53,6 @@ func InitConfig() (*viper.Viper, []model.Bet, error) {
 	}
 
 	// Parse time.Duration variables and return an error if those variables cannot be parsed
-
-	if _, err := time.ParseDuration(v.GetString("loop.period")); err != nil {
-		return nil, nil, errors.Wrapf(err, "Could not parse CLI_LOOP_PERIOD env var as time.Duration.")
-	}
 
 	id, err := strconv.Atoi(v.GetString("id"))
 	if err != nil {
@@ -96,12 +90,12 @@ func InitConfig() (*viper.Viper, []model.Bet, error) {
 		}
 
 		bet := model.Bet{
-			AgencyId: id,
-			Name:    record[0],
-			LastName: record[1],
-			Document: record[2],
+			AgencyId:  id,
+			Name:      record[0],
+			LastName:  record[1],
+			Document:  record[2],
 			BirthDate: record[3],
-			Number: number,
+			Number:    number,
 		}
 
 		bets = append(bets, bet)
@@ -135,10 +129,9 @@ func InitLogger(logLevel string) error {
 // PrintConfig Print all the configuration parameters of the program.
 // For debugging purposes only
 func PrintConfig(v *viper.Viper) {
-	log.Infof("action: config | result: success | client_id: %s | server_address: %s | loop_amount: %v | loop_period: %v | log_level: %s",
+	log.Infof("action: config | result: success | client_id: %s | server_address: %s | log_level: %s",
 		v.GetString("id"),
 		v.GetString("server.address"),
-		v.GetDuration("loop.period"),
 		v.GetString("log.level"),
 	)
 }
@@ -162,10 +155,8 @@ func main() {
 	PrintConfig(v)
 
 	clientConfig := common.ClientConfig{
-		ServerAddress: v.GetString("server.address"),
-		ID:            v.GetString("id"),
-		LoopAmount:    v.GetInt("loop.amount"),
-		LoopPeriod:    v.GetDuration("loop.period"),
+		ServerAddress:  v.GetString("server.address"),
+		ID:             v.GetString("id"),
 		BatchMaxAmount: v.GetInt("batch.maxAmount"),
 	}
 
