@@ -3,17 +3,17 @@ package common
 import (
 	"net"
 	"os"
-	
-	"github.com/op/go-logging"
+
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/model"
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/protocol"
+	"github.com/op/go-logging"
 )
 
 var log = logging.MustGetLogger("log")
 
 type ClientConfig struct {
-	ID            string
-	ServerAddress string
+	ID             string
+	ServerAddress  string
 	BatchMaxAmount int
 }
 
@@ -32,19 +32,20 @@ func NewClient(config ClientConfig, bets []model.Bet) *Client {
 
 // createClientSocket inicializa la conexión
 func (c *Client) createClientSocket() error {
-       log.Debugf("intentando conectar a %s", c.config.ServerAddress)
-       conn, err := net.Dial("tcp", c.config.ServerAddress)
-       if err != nil {
-	       log.Errorf("action: connect | result: fail | client_id: %v | error: %v", c.config.ID, err)
-	       return err
-       }
-       log.Debugf("conexión exitosa a %s", c.config.ServerAddress)
-       c.conn = conn
-       return nil
+	log.Debugf("intentando conectar a %s", c.config.ServerAddress)
+	conn, err := net.Dial("tcp", c.config.ServerAddress)
+	if err != nil {
+		log.Errorf("action: connect | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return err
+	}
+	log.Debugf("conexión exitosa a %s", c.config.ServerAddress)
+	c.conn = conn
+	return nil
 }
 
 // StartClient inicia el cliente y maneja la señal de apagado
 func (c *Client) StartClientLoop(sigChan chan os.Signal) {
+	log.Infof("[DEBUG] BatchMaxAmount usado por el cliente: %d", c.config.BatchMaxAmount)
 	select {
 	case <-sigChan:
 		log.Infof("action: shutdown | result: success")
@@ -55,7 +56,6 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 		}
 		//se pospone la ejecucion hasta el final de la función.
 		defer c.conn.Close()
-
 
 		for i := 0; i < len(c.bets); i += c.config.BatchMaxAmount {
 			end := i + c.config.BatchMaxAmount
@@ -94,4 +94,3 @@ func (c *Client) Stop() {
 
 	log.Infof("action: exit | result: success | client_id: %v", c.config.ID)
 }
-
