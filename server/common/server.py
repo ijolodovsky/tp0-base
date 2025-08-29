@@ -18,13 +18,15 @@ class Server:
         signal.signal(signal.SIGTERM, self.handle_sigterm)
 
     def run(self):
-        while self.running:
+        # Solo atiende a un cliente y luego termina
+        if self.running:
             try:
                 client_sock, addr = self._server_socket.accept()
                 logging.info(f"action: accept_connections | result: success | ip: {addr[0]}")
                 self.__handle_client_connection(client_sock)
             except OSError:
-                break
+                pass
+        self.running = False
 
     def handle_sigterm(self, signum, frame):
         logging.info(f'action: shutdown | result: in_progress')
