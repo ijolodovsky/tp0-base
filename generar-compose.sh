@@ -38,7 +38,7 @@ for i in $(seq 1 $CANTIDAD_CLIENTES); do
       - testing_net
     volumes:
       - ./client/config.yaml:/config.yaml
-      - ./data/agency-$i.csv:/agency.csv
+      - ./.data/agency-$i.csv:/agency.csv
     depends_on:
       - server
 EOL

@@ -5,6 +5,7 @@
 bin/
 
 data/agency*
+.data/agency*
 
 # Python bytecode
 __pycache__/
