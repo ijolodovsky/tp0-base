@@ -1,9 +1,10 @@
 import struct
 from common.utils import Bet
 
-def read_bets(sock) -> list[Bet]:
+def read_bets(sock, max_bets=None) -> list[Bet]:
     """
     Lee las apuestas enviadas por el cliente usando longitud-prefijada (2 bytes) y separador '|'.
+    Si max_bets está definido, solo procesa hasta ese máximo.
     """
     header = _read_n_bytes(sock, 2)
     if not header:
@@ -30,6 +31,8 @@ def read_bets(sock) -> list[Bet]:
             number=int(fields[5])
         )
         bets.append(bet)
+        if max_bets is not None and len(bets) >= max_bets:
+            break
 
     return bets
 
