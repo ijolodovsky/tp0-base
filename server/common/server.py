@@ -1,6 +1,7 @@
 import signal
 import socket
 import logging
+import os
 
 from common.utils import store_bets
 from protocol.protocol import read_bets, send_ack
@@ -33,6 +34,7 @@ class Server:
         self.running = False
         self._server_socket.close()
         logging.info(f'action: shutdown | result: success')
+        os._exit(0)
 
     def __handle_client_connection(self, client_sock):
         """
