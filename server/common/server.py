@@ -28,7 +28,6 @@ class Server:
             except OSError:
                 pass
         self.running = False
-        os._exit(0)
 
     def handle_sigterm(self, signum, frame):
         logging.info(f'action: shutdown | result: in_progress')
