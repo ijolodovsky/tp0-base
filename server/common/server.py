@@ -34,26 +34,28 @@ class Server:
 
     def __handle_client_connection(self, client_sock):
         """
-        Read message from a specific client socket and closes the socket
-
-        If a problem arises in the communication with the client, the
-        client socket will also be closed
+        Lee y procesa múltiples batches de apuestas por conexión hasta que el cliente cierre el socket.
         """
         try:
-            bets = read_bets(client_sock, self.batch_max_amount)
+            while True:
+                try:
+                    bets = read_bets(client_sock, self.batch_max_amount)
+                except ConnectionError:
+                    # El cliente cerró la conexión
+                    break
+                except Exception as e:
+                    logging.error(f"action: receive_message | result: fail | error: {e}")
+                    break
 
-            if len(bets) > self.batch_max_amount:
-                logging.error(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)} | error: too_many_bets")
-                return
-            
-            try:
-                store_bets(bets)
-                logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
-                send_ack(client_sock, bets)
-            except Exception as store_error:
-                logging.error(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)} | error: {store_error}")
+                if len(bets) > self.batch_max_amount:
+                    logging.error(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)} | error: too_many_bets")
+                    continue
 
-        except Exception as e:
-            logging.error(f"action: receive_message | result: fail | error: {e}")
+                try:
+                    store_bets(bets)
+                    logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
+                    send_ack(client_sock, bets)
+                except Exception as store_error:
+                    logging.error(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)} | error: {store_error}")
         finally:
             client_sock.close()
