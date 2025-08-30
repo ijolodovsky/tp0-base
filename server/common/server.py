@@ -30,10 +30,10 @@ class Server:
         self.running = False
 
     def handle_sigterm(self, signum, frame):
-        logging.info(f'action: shutdown | result: in_progress')
+        logging.info(f'action: shutdown | result: in_progress | motivo: SIGTERM recibido')
         self.running = False
         self._server_socket.close()
-        logging.info(f'action: shutdown | result: success')
+        logging.info(f'action: shutdown | result: success | motivo: SIGTERM recibido')
         os._exit(0)
 
     def __handle_client_connection(self, client_sock):
