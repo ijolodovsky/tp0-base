@@ -49,11 +49,11 @@ func InitConfig() (*viper.Viper, []model.Bet, error) {
 	configPath := "/config.yaml"
 	v.SetConfigFile(configPath)
 	if err := v.ReadInConfig(); err != nil {
-		fmt.Printf("Configuration could not be read from config file. Using env variables instead\n")
+		log.Infof("Configuration could not be read from config file. Using env variables instead\n")
 	} else {
 		absPath, _ := os.Getwd()
-		fmt.Printf("[DEBUG] Config file loaded: %s (cwd: %s)\n", configPath, absPath)
-		fmt.Printf("[DEBUG] batch.maxAmount leído: %d\n", v.GetInt("batch.maxAmount"))
+		log.Infof("[DEBUG] Config file loaded: %s (cwd: %s)\n", configPath, absPath)
+		log.Infof("[DEBUG] batch.maxAmount leído: %d\n", v.GetInt("batch.maxAmount"))
 	}
 
 	// Parse time.Duration variables and return an error if those variables cannot be parsed
