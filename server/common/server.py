@@ -53,6 +53,9 @@ class Server:
                         logging.error(f"action: receive_message | result: fail | error: {e}")
                         break
 
+                if len(bets) == 0:
+                    logging.error(f"action: apuesta_recibida | result: fail | cantidad: 0 | error: empty_batch")
+                    break
                 if len(bets) > self.batch_max_amount:
                     logging.error(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)} | error: too_many_bets")
                     continue
