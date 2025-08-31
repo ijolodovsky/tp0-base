@@ -73,6 +73,7 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 				break
 			}
 
+			log.Debugf("Sent batch of %d bets, waiting for ACK", len(chunk))
 			// se usa ReceiveAck de protocol
 			ack, err := protocol.ReceiveAck(c.conn)
 			if err != nil {
@@ -90,6 +91,7 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 			lastBet := chunk[len(chunk)-1]
 			if ack == lastBet.Number {
 				totalBetsSent += len(chunk)
+				log.Debugf("Received correct ACK: %d, total bets sent: %d", ack, totalBetsSent)
 			} else {
 				log.Errorf("action: apuestas_enviadas | result: fail | client_id: %v | expected: %d | received: %d", c.config.ID, lastBet.Number, ack)
 				success = false

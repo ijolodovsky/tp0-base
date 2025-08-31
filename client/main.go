@@ -41,20 +41,15 @@ func InitConfig() (*viper.Viper, []model.Bet, error) {
 	// v.BindEnv("loop", "period") // Solo se lee de config.yaml, no del entorno
 	v.BindEnv("loop", "amount")
 	v.BindEnv("log", "level")
-	v.BindEnv("batch", "maxAmount")
 
 	// Try to read configuration from config file. If config file
 	// does not exists then ReadInConfig will fail but configuration
 	// can be loaded from the environment variables so we shouldn't
 	// return an error in that case
-	configPath := "/config.yaml"
+	configPath := "./config.yaml"
 	v.SetConfigFile(configPath)
 	if err := v.ReadInConfig(); err != nil {
 		log.Infof("Configuration could not be read from config file. Using env variables instead\n")
-	} else {
-		absPath, _ := os.Getwd()
-		log.Infof("[DEBUG] Config file loaded: %s (cwd: %s)\n", configPath, absPath)
-		log.Infof("[DEBUG] batch.maxAmount leído: %d\n", v.GetInt("batch.maxAmount"))
 	}
 
 	// Parse time.Duration variables and return an error if those variables cannot be parsed
