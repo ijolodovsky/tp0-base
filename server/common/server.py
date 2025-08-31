@@ -93,7 +93,6 @@ class Server:
                         # Busco los ganadores de esta agencia
                         winners = self.get_winners_agency(int(agency_id))
                         send_winners_list(client_sock, winners, sorteoRealizado=True)
-                        logging.info(f"action: consulta_ganadores | result: success | cant_ganadores: {len(winners)} | agency: {agency_id}")
                         break
 
         except Exception as e:
