@@ -12,11 +12,20 @@ def read_bets(sock) -> list[Bet]:
 
     message_length = struct.unpack('>H', header)[0]
     logging.debug(f"Reading message of length: {message_length}")
-    
-    data = _read_n_bytes(sock, message_length)
-    text = data.decode('utf-8')
 
-    # divido el payload en las distintas apuestas
+    data = _read_n_bytes(sock, message_length)
+
+    # --- DEBUG ---
+    logging.debug(f"Raw bytes received: {data}")
+    try:
+        text = data.decode('utf-8')
+    except UnicodeDecodeError as e:
+        logging.error(f"Error decoding bytes: {e}")
+        raise
+
+    logging.debug(f"Decoded text: {text}")
+
+    # Divido el payload en las distintas apuestas
     bets_raw = text.split('\n')
     bets = []
 
@@ -49,6 +58,7 @@ def _read_n_bytes(sock, n: int) -> bytes:
             raise ConnectionError("Socket closed before reading all bytes")
         buf += chunk
     return buf
+
 
 def send_ack(sock, bets: list[Bet]):
     """
