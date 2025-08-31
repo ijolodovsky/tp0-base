@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"time"
 	"syscall"
@@ -21,9 +20,9 @@ import (
 var log = logging.MustGetLogger("log")
 
 // LoadBetsFromCSV carga las apuestas desde un archivo CSV
-func LoadBetsFromCSV(agencyId int) ([]model.Bet, error) {
-	filename := fmt.Sprintf("/data/agency-%d.csv", agencyId)
-	
+func LoadBetsFromCSV(agencyId string) ([]model.Bet, error) {
+	filename := fmt.Sprintf("/agency-%s.csv", agencyId)
+
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, fmt.Errorf("error opening CSV file %s: %w", filename, err)
@@ -42,10 +41,6 @@ func LoadBetsFromCSV(agencyId int) ([]model.Bet, error) {
 			return nil, fmt.Errorf("invalid record in line %d: expected 5 fields, got %d", i+1, len(record))
 		}
 
-		number, err := strconv.Atoi(record[4])
-		if err != nil {
-			return nil, fmt.Errorf("invalid number in line %d: %w", i+1, err)
-		}
 
 		bet := model.Bet{
 			AgencyId:  agencyId,
@@ -53,7 +48,7 @@ func LoadBetsFromCSV(agencyId int) ([]model.Bet, error) {
 			LastName:  record[1],
 			Document:  record[2],
 			BirthDate: record[3],
-			Number:    number,
+			Number:    record[4],
 		}
 		bets = append(bets, bet)
 	}
@@ -83,7 +78,6 @@ func InitConfig() (*viper.Viper, error) {
 	v.BindEnv("loop", "period")
 	v.BindEnv("loop", "amount")
 	v.BindEnv("log", "level")
-	v.BindEnv("batch", "maxAmount")
 
 	// Try to read configuration from config file. If config file
 	// does not exists then ReadInConfig will fail but configuration
@@ -153,18 +147,13 @@ func run() error {
 		os.Exit(1)
 	}
 
-	agencyId, err := strconv.Atoi(v.GetString("id"))
-	if err != nil {
-		return fmt.Errorf("ID inválido: %w", err)
-	}
-
 	// Cargar apuestas desde CSV
-	bets, err := LoadBetsFromCSV(agencyId)
+	bets, err := LoadBetsFromCSV(v.GetString("id"))
 	if err != nil {
 		return fmt.Errorf("error cargando apuestas desde CSV: %w", err)
 	}
 
-	log.Infof("Cargadas %d apuestas desde CSV para agencia %d", len(bets), agencyId)
+	log.Infof("Cargadas %d apuestas desde CSV para agencia %s", len(bets), v.GetString("id"))
 
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, syscall.SIGTERM)
