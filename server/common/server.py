@@ -92,7 +92,7 @@ class Server:
                 if not self.sorteoRealizado:
                     # Agregar cliente a la lista de espera (NO cerrar conexión)
                     self.pending_winners_queries.append((client_sock, int(agency_id)))
-                    logging.info(f"action: consulta_ganadores | result: waiting | agency: {agency_id}")
+                    logging.info(f"action: consulta_ganadores | result: in_progress | agency: {agency_id}")
                     return
                 else:
                     # Busco los ganadores de esta agencia
