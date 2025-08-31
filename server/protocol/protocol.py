@@ -1,9 +1,20 @@
 import struct
 from common.utils import Bet
+from typing import List
 
 def read_bet(sock) -> Bet:
     """
     Lee una apuesta enviada por el cliente usando longitud-prefijada (2 bytes) y separador '|'.
+    """
+    bets = read_bet_batch(sock)
+    if len(bets) != 1:
+        raise ValueError(f"Expected single bet but got {len(bets)}")
+    return bets[0]
+
+def read_bet_batch(sock) -> List[Bet]:
+    """
+    Lee un batch de apuestas enviadas por el cliente usando longitud-prefijada (2 bytes).
+    Cada apuesta está separada por '|' y los bets están separados por '\n'.
     """
     header = _read_n_bytes(sock, 2)
     if not header:
@@ -13,18 +24,28 @@ def read_bet(sock) -> Bet:
     data = _read_n_bytes(sock, message_length)
     text = data.decode('utf-8')
 
-    fields = text.split('|')
-    if len(fields) != 6:
-        raise ValueError(f"Invalid bet received, expected 5 fields but got {len(fields)}")
+    bets = []
+    bet_lines = text.split('\n')
+    
+    for bet_line in bet_lines:
+        if not bet_line.strip():  # Skip empty lines
+            continue
+            
+        fields = bet_line.split('|')
+        if len(fields) != 6:
+            raise ValueError(f"Invalid bet received, expected 6 fields but got {len(fields)}: {bet_line}")
 
-    return Bet(
-        agency=fields[0],  # Default agency, or you can get it from client connection
-        first_name=fields[1],
-        last_name=fields[2],
-        document=int(fields[3]),
-        birthdate=fields[4],
-        number=int(fields[5])
-    )
+        bet = Bet(
+            agency=fields[0],
+            first_name=fields[1],
+            last_name=fields[2],
+            document=fields[3],
+            birthdate=fields[4],
+            number=fields[5]
+        )
+        bets.append(bet)
+    
+    return bets
 
 def _read_n_bytes(sock, n: int) -> bytes:
     """
@@ -43,6 +64,14 @@ def send_ack(sock, bet: Bet):
     Envía un ACK de 4 bytes big-endian con el número de la apuesta.
     """
     ack = struct.pack('>I', bet.number)
+    _send_all(sock, ack)
+
+def send_batch_ack(sock, success: bool):
+    """
+    Envía un ACK para un batch de apuestas.
+    success: True si todas las apuestas fueron procesadas correctamente, False en caso contrario.
+    """
+    ack = struct.pack('B', 1 if success else 0)
     _send_all(sock, ack)
 
 def _send_all(sock, data: bytes):

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/csv"
 	"fmt"
 	"os"
 	"os/signal"
@@ -19,12 +20,53 @@ import (
 
 var log = logging.MustGetLogger("log")
 
+// LoadBetsFromCSV carga las apuestas desde un archivo CSV
+func LoadBetsFromCSV(agencyId int) ([]model.Bet, error) {
+	filename := fmt.Sprintf("/data/agency-%d.csv", agencyId)
+	
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, fmt.Errorf("error opening CSV file %s: %w", filename, err)
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	records, err := reader.ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("error reading CSV file: %w", err)
+	}
+
+	var bets []model.Bet
+	for i, record := range records {
+		if len(record) != 5 {
+			return nil, fmt.Errorf("invalid record in line %d: expected 5 fields, got %d", i+1, len(record))
+		}
+
+		number, err := strconv.Atoi(record[4])
+		if err != nil {
+			return nil, fmt.Errorf("invalid number in line %d: %w", i+1, err)
+		}
+
+		bet := model.Bet{
+			AgencyId:  agencyId,
+			Name:      record[0],
+			LastName:  record[1],
+			Document:  record[2],
+			BirthDate: record[3],
+			Number:    number,
+		}
+		bets = append(bets, bet)
+	}
+
+	return bets, nil
+}
+
 // InitConfig Function that uses viper library to parse configuration parameters.
 // Viper is configured to read variables from both environment variables and the
 // config file ./config.yaml. Environment variables takes precedence over parameters
 // defined in the configuration file. If some of the variables cannot be parsed,
 // an error is returned
-func InitConfig() (*viper.Viper, model.Bet, error) {
+func InitConfig() (*viper.Viper, error) {
 	v := viper.New()
 
 	// Configure viper to read env variables with the CLI_ prefix
@@ -41,6 +83,7 @@ func InitConfig() (*viper.Viper, model.Bet, error) {
 	v.BindEnv("loop", "period")
 	v.BindEnv("loop", "amount")
 	v.BindEnv("log", "level")
+	v.BindEnv("batch", "maxAmount")
 
 	// Try to read configuration from config file. If config file
 	// does not exists then ReadInConfig will fail but configuration
@@ -52,37 +95,11 @@ func InitConfig() (*viper.Viper, model.Bet, error) {
 	}
 
 	// Parse time.Duration variables and return an error if those variables cannot be parsed
-
 	if _, err := time.ParseDuration(v.GetString("loop.period")); err != nil {
-		return nil, model.Bet{}, errors.Wrapf(err, "Could not parse CLI_LOOP_PERIOD env var as time.Duration.")
+		return nil, errors.Wrapf(err, "Could not parse CLI_LOOP_PERIOD env var as time.Duration.")
 	}
 
-	bet_name := os.Getenv("NOMBRE")
-	bet_lastname := os.Getenv("APELLIDO")
-	bet_document := os.Getenv("DOCUMENTO")
-	bet_birthdate := os.Getenv("NACIMIENTO")
-	bet_number := os.Getenv("NUMERO")
-
-	id, err := strconv.Atoi(v.GetString("id"))
-	if err != nil {
-		return nil, model.Bet{}, fmt.Errorf("id inválido: %w", err)
-	}
-
-	number, err := strconv.Atoi(bet_number)
-	if err != nil {
-		return nil, model.Bet{}, fmt.Errorf("número inválido: %w", err)
-	}
-
-	bet := model.Bet{
-		AgencyId: id,
-		Name:     bet_name,
-		LastName: bet_lastname,
-		Document: bet_document,
-		BirthDate: bet_birthdate,
-		Number:    number,
-	}
-
-	return v, bet, nil
+	return v, nil
 }
 
 // InitLogger Receives the log level to be set in go-logging as a string. This method
@@ -119,7 +136,7 @@ func PrintConfig(v *viper.Viper) {
 }
 
 func main() {
-	v, bet, err := InitConfig()
+	v, err := InitConfig()
 	if err != nil {
 		log.Criticalf("%s", err)
 		os.Exit(1)
@@ -129,6 +146,21 @@ func main() {
 		log.Criticalf("%s", err)
 		os.Exit(1)
 	}
+
+	agencyId, err := strconv.Atoi(v.GetString("id"))
+	if err != nil {
+		log.Criticalf("ID inválido: %s", err)
+		os.Exit(1)
+	}
+
+	// Cargar apuestas desde CSV
+	bets, err := LoadBetsFromCSV(agencyId)
+	if err != nil {
+		log.Criticalf("Error cargando apuestas desde CSV: %s", err)
+		os.Exit(1)
+	}
+
+	log.Infof("Cargadas %d apuestas desde CSV para agencia %d", len(bets), agencyId)
 
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, syscall.SIGTERM)
@@ -141,9 +173,10 @@ func main() {
 		ID:            v.GetString("id"),
 		LoopAmount:    v.GetInt("loop.amount"),
 		LoopPeriod:    v.GetDuration("loop.period"),
+		BatchMaxAmount: v.GetInt("batch.maxAmount"),
 	}
 
-	client := common.NewClient(clientConfig, bet)
+	client := common.NewClient(clientConfig, bets)
 
 	go func() {
 		<-sigchan

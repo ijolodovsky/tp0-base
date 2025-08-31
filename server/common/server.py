@@ -3,7 +3,7 @@ import socket
 import logging
 
 from common.utils import store_bets
-from protocol.protocol import read_bet, send_ack
+from protocol.protocol import read_bet, send_ack, read_bet_batch, send_batch_ack
 
 class Server:
     def __init__(self, port, listen_backlog):
@@ -39,10 +39,28 @@ class Server:
         client socket will also be closed
         """
         try:
-            bet = read_bet(client_sock)
-            store_bets([bet])
-            logging.info(f"action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}")
-            send_ack(client_sock, bet)
+            # Intentar leer como batch primero
+            bets = read_bet_batch(client_sock)
+            
+            # Procesar todas las apuestas del batch
+            all_success = True
+            try:
+                store_bets(bets)
+                for bet in bets:
+                    logging.info(f"action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}")
+            except Exception as e:
+                all_success = False
+                logging.error(f"action: store_bets | result: fail | error: {e}")
+            
+            # Logging según especificaciones
+            if all_success:
+                logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
+            else:
+                logging.info(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)}")
+            
+            # Enviar respuesta según el resultado
+            send_batch_ack(client_sock, all_success)
+            
         except Exception as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")
         finally:
