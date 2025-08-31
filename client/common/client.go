@@ -3,6 +3,7 @@ package common
 import (
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/model"
@@ -112,6 +113,94 @@ func (c *Client) processBets() {
 	}
 
 	log.Infof("action: apuesta_enviada | result: success | client_id: %v", c.config.ID)
+
+	// Enviar notificación de finalización
+	c.finishNotification()
+
+	// Consultar ganadores
+	c.consultWinners()
+}
+
+// sendFinishNotification envía notificación al servidor de que terminó de enviar apuestas
+func (c *Client) finishNotification() {
+	if err := c.createClientSocket(); err != nil {
+		log.Errorf("action: send_finish_notification | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return
+	}
+	defer c.conn.Close()
+
+	if err := protocol.SendFinishConfirmation(c.conn, c.config.ID); err != nil {
+		log.Errorf("action: send_finish_notification | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return
+	}
+
+	ok, err := protocol.ReceiveFinishAck(c.conn)
+	if err != nil {
+		log.Errorf("action: receive_finish_ack | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return
+	}
+
+	if ok {
+		log.Infof("action: finish_notification | result: success | client_id: %v", c.config.ID)
+	} else {
+		log.Errorf("action: finish_notification | result: fail | client_id: %v", c.config.ID)
+	}
+}
+
+// consultWinners consulta la lista de ganadores al servidor
+func (c *Client) consultWinners() {
+	maxRetries := 5
+	retryDelay := 2 * time.Second
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if err := c.createClientSocket(); err != nil {
+			log.Errorf("action: winners | result: fail | client_id: %v | attempt: %d | error: %v",
+				c.config.ID, attempt, err)
+			if attempt < maxRetries {
+				time.Sleep(retryDelay)
+				continue
+			}
+			return
+		}
+
+		if err := protocol.SendWinnersQuery(c.conn, c.config.ID); err != nil {
+			log.Errorf("action: ask_winners | result: fail | client_id: %v | attempt: %d | error: %v",
+				c.config.ID, attempt, err)
+			c.conn.Close()
+			if attempt < maxRetries {
+				time.Sleep(retryDelay)
+				continue
+			}
+			return
+		}
+
+		winners, err := protocol.ReceiveWinnersList(c.conn)
+		c.conn.Close()
+
+		if err != nil {
+			if strings.Contains(err.Error(), "ERROR_NO_SORTEO") {
+				log.Infof("action: consulta_ganadores | result: waiting | client_id: %v | attempt: %d | reason: sorteo_pending",
+					c.config.ID, attempt)
+				if attempt < maxRetries {
+					time.Sleep(retryDelay)
+					continue
+				}
+				log.Errorf("action: consulta_ganadores | result: fail | client_id: %v | reason: max_retries_exceeded", c.config.ID)
+				return
+			}
+			log.Errorf("action: query_winners | result: fail | client_id: %v | attempt: %d | error: %v",
+				c.config.ID, attempt, err)
+			return
+		}
+
+		log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %d", len(winners))
+
+		if len(winners) > 0 {
+			log.Infof("action: ganadores_recibidos | result: success | client_id: %v | ganadores: %v",
+				c.config.ID, winners)
+		}
+		return
+	}
 }
 
 func (c *Client) Stop() {

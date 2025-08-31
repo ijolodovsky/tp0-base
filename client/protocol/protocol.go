@@ -49,6 +49,43 @@ func SendBetBatch(conn net.Conn, bets []model.Bet) error {
 	return nil
 }
 
+// SendFinishConfirmation envía mensaje cuando termina el cliente de enviar todas sus apuestas (cuando no hay mas batches)
+func SendFinishConfirmation(conn net.Conn, agencyId string) error {
+	payload := fmt.Sprintf("FIN_APUESTAS|%s", agencyId)
+	data := []byte(payload)
+	length := uint16(len(data))
+
+	header := make([]byte, 2)
+	binary.BigEndian.PutUint16(header, length)
+
+	if err := writeAll(conn, header); err != nil {
+		return fmt.Errorf("error sending finish confirmation header: %w", err)
+	}
+	if err := writeAll(conn, data); err != nil {
+		return fmt.Errorf("error sending finish confirmation payload: %w", err)
+	}
+
+	return nil
+}
+
+func SendWinnersQuery(conn net.Conn, agencyId string) error {
+	payload := fmt.Sprintf("CONSULTA_GANADORES|%s", agencyId)
+	data := []byte(payload)
+	length := uint16(len(data))
+
+	header := make([]byte, 2)
+	binary.BigEndian.PutUint16(header, length)
+
+	if err := writeAll(conn, header); err != nil {
+		return fmt.Errorf("error sending winners query header: %w", err)
+	}
+	if err := writeAll(conn, data); err != nil {
+		return fmt.Errorf("error sending winners query payload: %w", err)
+	}
+
+	return nil
+}
+
 // ReceiveAck lee los 4 bytes de confirmación del servidor para un solo bet
 func ReceiveAck(conn net.Conn) (int, error) {
 	buf := make([]byte, 4)
@@ -67,6 +104,48 @@ func ReceiveBatchAck(conn net.Conn) (bool, error) {
 		return false, fmt.Errorf("error reading batch ACK: %w", err)
 	}
 	return buf[0] == 1, nil
+}
+
+// ReceiveFinishAck lee 1 byte: 1=éxito de la confirmación de finalización, 0=fallo
+func ReceiveFinishAck(conn net.Conn) (bool, error) {
+	buf := make([]byte, 1)
+	if err := readAll(conn, buf); err != nil {
+		return false, fmt.Errorf("error reading finish ACK: %w", err)
+	}
+	return buf[0] == 1, nil
+}
+
+// ReceiveWinnersList lee la lista de DNI ganadores del servidor
+func ReceiveWinnersList(conn net.Conn) ([]string, error) {
+	// Leer header de 2 bytes
+	header := make([]byte, 2)
+	if err := readAll(conn, header); err != nil {
+		return nil, fmt.Errorf("error reading winners list header: %w", err)
+	}
+
+	// Obtener longitud del payload
+	length := binary.BigEndian.Uint16(header)
+
+	// Leer payload
+	data := make([]byte, length)
+	if err := readAll(conn, data); err != nil {
+		return nil, fmt.Errorf("error reading winners list data: %w", err)
+	}
+
+	response := string(data)
+
+	// Manejar respuestas especiales
+	if response == "ERROR_NO_SORTEO" {
+		return nil, fmt.Errorf("no draw has been conducted")
+	}
+
+	if response == "" {
+		return []string{}, nil
+	}
+
+	// Parsear lista de DNIs separados por "|"
+	winners := strings.Split(response, "|")
+	return winners, nil
 }
 
 func writeAll(conn net.Conn, data []byte) error {
