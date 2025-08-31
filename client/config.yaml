@@ -7,4 +7,4 @@ loop:
 log:
   level: "DEBUG"
 batch:
-  maxAmount: 70
+  maxAmount: 50

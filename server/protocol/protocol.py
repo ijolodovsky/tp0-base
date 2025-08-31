@@ -1,16 +1,18 @@
 import struct
+import logging
 from common.utils import Bet
 
-def read_bets(sock, max_bets=None) -> list[Bet]:
+def read_bets(sock) -> list[Bet]:
     """
     Lee las apuestas enviadas por el cliente usando longitud-prefijada (2 bytes) y separador '|'.
-    Si max_bets está definido, solo procesa hasta ese máximo.
     """
     header = _read_n_bytes(sock, 2)
     if not header:
         raise ConnectionError("No header received")
 
     message_length = struct.unpack('>H', header)[0]
+    logging.debug(f"Reading message of length: {message_length}")
+    
     data = _read_n_bytes(sock, message_length)
     text = data.decode('utf-8')
 
@@ -19,6 +21,8 @@ def read_bets(sock, max_bets=None) -> list[Bet]:
     bets = []
 
     for line in bets_raw:
+        if not line.strip():
+            continue
         fields = line.split('|')
         if len(fields) != 6:
             raise ValueError(f"Invalid bet received, expected 6 fields but got {len(fields)}")
@@ -26,13 +30,11 @@ def read_bets(sock, max_bets=None) -> list[Bet]:
             agency=fields[0],
             first_name=fields[1],
             last_name=fields[2],
-            document=int(fields[3]),
+            document=fields[3],
             birthdate=fields[4],
             number=int(fields[5])
         )
         bets.append(bet)
-        if max_bets is not None and len(bets) >= max_bets:
-            break
 
     return bets
 

@@ -57,6 +57,9 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 		//se pospone la ejecucion hasta el final de la función.
 		defer c.conn.Close()
 
+		totalBetsSent := 0
+		success := true
+
 		for i := 0; i < len(c.bets); i += c.config.BatchMaxAmount {
 			end := i + c.config.BatchMaxAmount
 			if end > len(c.bets) {
@@ -66,26 +69,39 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 
 			if err := protocol.SendBets(c.conn, chunk); err != nil {
 				log.Errorf("action: send_bets | result: fail | client_id: %v | error: %v", c.config.ID, err)
-				return
+				success = false
+				break
 			}
 
 			// se usa ReceiveAck de protocol
 			ack, err := protocol.ReceiveAck(c.conn)
-			lastBet := chunk[len(chunk)-1]
 			if err != nil {
 				// Si es EOF y es el último batch, considerarlo éxito
 				if err.Error() == "EOF" && end == len(c.bets) {
-					log.Infof("action: apuestas_enviadas | result: success | cantidad: %d | client_id: %v", len(chunk), c.config.ID)
-					return
+					totalBetsSent += len(chunk)
+					break
 				}
 				log.Errorf("action: receive_ack | result: fail | client_id: %v | error: %v", c.config.ID, err)
-				return
+				success = false
+				break
 			}
+
+			// Verificar que el ACK corresponda a la última apuesta del chunk
+			lastBet := chunk[len(chunk)-1]
 			if ack == lastBet.Number {
-				log.Infof("action: apuestas_enviadas | result: success | cantidad: %d | client_id: %v", len(chunk), c.config.ID)
+				totalBetsSent += len(chunk)
 			} else {
-				log.Errorf("action: apuestas_enviadas | result: fail | cantidad: %d | client_id: %v", len(chunk), c.config.ID)
+				log.Errorf("action: apuestas_enviadas | result: fail | client_id: %v | expected: %d | received: %d", c.config.ID, lastBet.Number, ack)
+				success = false
+				break
 			}
+		}
+
+		// Log del resultado final
+		if success {
+			log.Infof("action: apuestas_enviadas | result: success | cantidad: %d | client_id: %v", totalBetsSent, c.config.ID)
+		} else {
+			log.Errorf("action: apuestas_enviadas | result: fail | cantidad: %d | client_id: %v", totalBetsSent, c.config.ID)
 		}
 	}
 }

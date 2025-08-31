@@ -7,19 +7,18 @@ from common.utils import store_bets
 from protocol.protocol import read_bets, send_ack
 
 class Server:
-    def __init__(self, port, listen_backlog, batch_max_amount=10):
+    def __init__(self, port, listen_backlog):
         # Initialize server socket
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
         self.running = True
-        self.batch_max_amount = batch_max_amount
         self.client_connections = []
 
         signal.signal(signal.SIGTERM, self.handle_sigterm)
 
     def run(self):
-        # Solo atiende a un cliente y luego termina
+        # Atiende a un cliente y procesa múltiples batches
         if self.running:
             try:
                 client_sock, addr = self._server_socket.accept()
@@ -44,7 +43,8 @@ class Server:
         try:
             while True:
                 try:
-                    bets = read_bets(client_sock, self.batch_max_amount)
+                    # Leer todas las apuestas
+                    bets = read_bets(client_sock)
                 except Exception as e:
                     # Si el error es por socket cerrado, loguear como info, no como error
                     if "Socket closed before reading all bytes" in str(e):
@@ -57,15 +57,14 @@ class Server:
                 if len(bets) == 0:
                     logging.error(f"action: apuesta_recibida | result: fail | cantidad: 0 | error: empty_batch")
                     break
-                if len(bets) > self.batch_max_amount:
-                    logging.error(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)} | error: too_many_bets")
-                    continue
 
                 try:
                     store_bets(bets)
                     logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
                     send_ack(client_sock, bets)
                 except Exception as store_error:
+                    # Si falla el almacenamiento, loguear como error y terminar
                     logging.error(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)} | error: {store_error}")
+                    break
         finally:
             client_sock.close()
