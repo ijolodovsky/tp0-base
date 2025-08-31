@@ -37,6 +37,12 @@ class Server:
         if self._server_socket:
             self._server_socket.close()
             logging.debug("Server socket closed")
+            # Verificar que el socket esté cerrado
+            try:
+                self._server_socket.getsockname()
+                logging.warning("Server socket still open after close")
+            except:
+                logging.debug("Server socket closed successfully")
         logging.debug("Server shutting down")
         self.running = False
         logging.debug("Server run() method finished")
@@ -84,3 +90,9 @@ class Server:
             logging.debug("Client connection closed, server will exit")
             self.running = False
             logging.debug("Client connection handler finished")
+            # Verificar que el socket esté cerrado
+            try:
+                client_sock.getpeername()
+                logging.warning("Client socket still open after close")
+            except:
+                logging.debug("Client socket closed successfully")
