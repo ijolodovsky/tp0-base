@@ -46,10 +46,14 @@ func InitConfig() (*viper.Viper, []model.Bet, error) {
 	// does not exists then ReadInConfig will fail but configuration
 	// can be loaded from the environment variables so we shouldn't
 	// return an error in that case
-	configPath := "./config.yaml"
+	configPath := "/config.yaml"
 	v.SetConfigFile(configPath)
 	if err := v.ReadInConfig(); err != nil {
 		log.Infof("Configuration could not be read from config file. Using env variables instead\n")
+	} else {
+		absPath, _ := os.Getwd()
+		log.Infof("[DEBUG] Config file loaded: %s (cwd: %s)\n", configPath, absPath)
+		log.Infof("[DEBUG] batch.maxAmount leído: %d\n", v.GetInt("batch.maxAmount"))
 	}
 
 	// Parse time.Duration variables and return an error if those variables cannot be parsed
@@ -64,9 +68,11 @@ func InitConfig() (*viper.Viper, []model.Bet, error) {
 	log.Infof("[DEBUG] Variables de entorno - CLI_ID: %s", os.Getenv("CLI_ID"))
 	log.Infof("[DEBUG] Variables de entorno - CLI_SERVER_ADDRESS: %s", os.Getenv("CLI_SERVER_ADDRESS"))
 
-	file, err := os.Open("/agency.csv")
+	// Construir la ruta del archivo basada en el ID del cliente
+	filePath := fmt.Sprintf("/data/agency-%d.csv", id)
+	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error opening file: %w", err)
+		return nil, nil, fmt.Errorf("error opening file %s: %w", filePath, err)
 	}
 	defer file.Close()
 
@@ -140,12 +146,12 @@ func main() {
 	v, bets, err := InitConfig()
 	if err != nil {
 		log.Criticalf("%s", err)
-		os.Exit(1)
+		return
 	}
 
 	if err := InitLogger(v.GetString("log.level")); err != nil {
 		log.Criticalf("%s", err)
-		os.Exit(1)
+		return
 	}
 
 	sigchan := make(chan os.Signal, 1)
@@ -168,7 +174,5 @@ func main() {
 	}()
 
 	client.StartClientLoop(sigchan)
-
-	os.Exit(0)
 
 }

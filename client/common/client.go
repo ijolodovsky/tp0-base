@@ -3,6 +3,7 @@ package common
 import (
 	"net"
 	"os"
+	"time"
 
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/model"
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/protocol"
@@ -105,11 +106,16 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 		} else {
 			log.Errorf("action: apuestas_enviadas | result: fail | cantidad: %d | client_id: %v", totalBetsSent, c.config.ID)
 		}
+		
+		// Dar tiempo al servidor para procesar antes de cerrar la conexión
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 
 func (c *Client) Stop() {
 	if c.conn != nil {
+		// Dar tiempo para que se termine el procesamiento
+		time.Sleep(50 * time.Millisecond)
 		c.conn.Close()
 		log.Infof("action: close_connection | result: success | client_id: %v", c.config.ID)
 	}

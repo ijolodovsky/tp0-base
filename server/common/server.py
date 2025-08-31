@@ -2,6 +2,7 @@ import signal
 import socket
 import logging
 import os
+import time
 
 from common.utils import store_bets
 from protocol.protocol import read_bets, send_ack
@@ -81,6 +82,8 @@ class Server:
                     store_bets(bets)
                     logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
                     send_ack(client_sock, bets)
+                    # Dar tiempo para que el cliente procese el ACK
+                    time.sleep(0.05)  # 50ms
                 except Exception as store_error:
                     # Si falla el almacenamiento, loguear como error y terminar
                     logging.error(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)} | error: {store_error}")
