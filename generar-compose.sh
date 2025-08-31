@@ -22,7 +22,6 @@ services:
       - testing_net
     volumes:
         - ./server/config.ini:/config.ini
-        - ./data:/data
 EOL
 
 #Agregar clientes
