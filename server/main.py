@@ -50,7 +50,10 @@ def main():
     # Initialize server and start server loop
     server = Server(port, listen_backlog)
     signal.signal(signal.SIGTERM, server.handle_sigterm)
+    
+    logging.debug("Starting server...")
     server.run()
+    logging.debug("Server finished, main process will exit")
 
 def initialize_log(logging_level):
     """
