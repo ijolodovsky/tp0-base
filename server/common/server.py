@@ -17,34 +17,38 @@ class Server:
 
         signal.signal(signal.SIGTERM, self.handle_sigterm)
 
+    def should_exit(self):
+        """Verifica si el servidor debe terminar"""
+        return not self.running
+
     def run(self):
         # Atiende a un cliente y procesa múltiples batches, luego termina
-        if self.running:
-            try:
-                client_sock, addr = self._server_socket.accept()
-                logging.info(f"action: accept_connections | result: success | ip: {addr[0]}")
-                self.__handle_client_connection(client_sock)
-                logging.debug("Client connection handled, server will exit")
-            except OSError:
-                logging.debug("OSError in accept, server will exit")
-                pass
-        self.running = False
+        try:
+            client_sock, addr = self._server_socket.accept()
+            logging.info(f"action: accept_connections | result: success | ip: {addr[0]}")
+            self.__handle_client_connection(client_sock)
+            logging.debug("Client connection handled, server will exit")
+        except OSError:
+            logging.debug("OSError in accept, server will exit")
+        
+        # Cerrar el socket del servidor y terminar naturalmente
+        if self._server_socket:
+            self._server_socket.close()
         logging.debug("Server shutting down")
-        os._exit(0)
+        self.running = False
 
     def handle_sigterm(self, signum, frame):
         logging.info(f'action: shutdown | result: in_progress | motivo: SIGTERM recibido')
         self.running = False
         self._server_socket.close()
         logging.info(f'action: shutdown | result: success | motivo: SIGTERM recibido')
-        os._exit(0)
 
     def __handle_client_connection(self, client_sock):
         """
         Lee y procesa múltiples batches de apuestas por conexión hasta que el cliente cierre el socket.
         """
         try:
-            while True:
+            while self.running:
                 try:
                     # Leer todas las apuestas
                     bets = read_bets(client_sock)
@@ -72,3 +76,4 @@ class Server:
         finally:
             client_sock.close()
             logging.debug("Client connection closed, server will exit")
+            self.running = False
