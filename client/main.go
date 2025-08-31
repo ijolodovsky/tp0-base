@@ -119,15 +119,20 @@ func PrintConfig(v *viper.Viper) {
 }
 
 func main() {
+	if err := run(); err != nil {
+		log.Criticalf("Error fatal: %s", err)
+		return
+	}
+}
+
+func run() error {
 	v, bet, err := InitConfig()
 	if err != nil {
-		log.Criticalf("%s", err)
-		os.Exit(1)
+		return fmt.Errorf("error inicializando configuración: %w", err)
 	}
 
 	if err := InitLogger(v.GetString("log.level")); err != nil {
-		log.Criticalf("%s", err)
-		os.Exit(1)
+		return fmt.Errorf("error inicializando logger: %w", err)
 	}
 
 	sigchan := make(chan os.Signal, 1)
@@ -152,6 +157,6 @@ func main() {
 
 	client.StartClientLoop(sigchan)
 
-	os.Exit(0)
-
+	log.Infof("action: exit | result: success | client_id: %v", v.GetString("id"))
+	return nil
 }
