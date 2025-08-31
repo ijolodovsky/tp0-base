@@ -144,8 +144,8 @@ func (c *Client) finishNotification() {
 
 // consultWinners consulta la lista de ganadores al servidor
 func (c *Client) consultWinners() {
-	maxRetries := 5
-	retryDelay := 2 * time.Second
+	maxRetries := 10              // Más intentos
+	retryDelay := 3 * time.Second // Más tiempo entre intentos
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		if err := c.createClientSocket(); err != nil {
@@ -174,10 +174,14 @@ func (c *Client) consultWinners() {
 
 		if err != nil {
 			if strings.Contains(err.Error(), "ERROR_NO_SORTEO") {
+				// No loggear como error, solo como info que está esperando
+				log.Infof("action: consulta_ganadores | result: waiting | client_id: %v | attempt: %d | reason: sorteo_pending",
+					c.config.ID, attempt)
 				if attempt < maxRetries {
 					time.Sleep(retryDelay)
 					continue
 				}
+				// Solo loggear error si se agotan todos los intentos
 				log.Errorf("action: consulta_ganadores | result: fail | client_id: %v | reason: max_retries_exceeded", c.config.ID)
 				return
 			}
@@ -185,6 +189,9 @@ func (c *Client) consultWinners() {
 				c.config.ID, attempt, err)
 			return
 		}
+
+		// Éxito - log requerido por el enunciado
+		log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %d", len(winners))
 
 		if len(winners) > 0 {
 			log.Infof("action: ganadores_recibidos | result: success | client_id: %v | ganadores: %v",
