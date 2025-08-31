@@ -165,9 +165,21 @@ func (c *Client) consultWinners() {
 		log.Infof("action: ganadores_recibidos | result: success | client_id: %v | ganadores: %v",
 			c.config.ID, winners)
 	}
+
+	// Pequeño delay para asegurar que los logs se escriban antes de terminar
+	time.Sleep(100 * time.Millisecond)
 }
 
 func (c *Client) Stop() {
+	// Pequeño delay basado en client_id para evitar terminación simultánea
+	clientID := c.config.ID
+	if len(clientID) > 0 {
+		// Usar último dígito del client_id para crear delay escalonado
+		lastChar := clientID[len(clientID)-1]
+		delay := time.Duration(int(lastChar-'0')) * 50 * time.Millisecond
+		time.Sleep(delay)
+	}
+
 	if c.conn != nil {
 		c.conn.Close()
 		log.Infof("action: close_connection | result: success | client_id: %v", c.config.ID)
