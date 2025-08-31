@@ -1,10 +1,8 @@
 package common
 
 import (
-	"io"
 	"net"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/model"
@@ -37,15 +35,15 @@ func NewClient(config ClientConfig, bets []model.Bet) *Client {
 
 // createClientSocket inicializa la conexión
 func (c *Client) createClientSocket() error {
-       log.Debugf("intentando conectar a %s", c.config.ServerAddress)
-       conn, err := net.Dial("tcp", c.config.ServerAddress)
-       if err != nil {
-	       log.Errorf("action: connect | result: fail | client_id: %v | error: %v", c.config.ID, err)
-	       return err
-       }
-       log.Debugf("conexión exitosa a %s", c.config.ServerAddress)
-       c.conn = conn
-       return nil
+	log.Debugf("intentando conectar a %s", c.config.ServerAddress)
+	conn, err := net.Dial("tcp", c.config.ServerAddress)
+	if err != nil {
+		log.Errorf("action: connect | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return err
+	}
+	log.Debugf("conexión exitosa a %s", c.config.ServerAddress)
+	c.conn = conn
+	return nil
 }
 
 // StartClient inicia el cliente y maneja la señal de apagado
@@ -70,54 +68,44 @@ func (c *Client) processBets() {
 	}
 
 	if batchSize <= 0 {
-		c.config.BatchMaxAmount = totalBets
+		batchSize = totalBets
 	}
-
-	if err := c.createClientSocket(); err != nil {
-		return
-	}
-
-	defer c.conn.Close()
 
 	for i := 0; i < totalBets; i += batchSize {
 		end := i + batchSize
 		if end > totalBets {
 			end = totalBets
 		}
-		
+
 		batch := c.bets[i:end]
+		if err := c.createClientSocket(); err != nil {
+			return
+		}
+
 		if err := protocol.SendBetBatch(c.conn, batch); err != nil {
 			log.Errorf("action: send_batch | result: fail | client_id: %v | batch_size: %d | error: %v",
 				c.config.ID, len(batch), err)
+			c.conn.Close()
 			return
 		}
 
-		ack, err := protocol.ReceiveAck(c.conn)
-		lastBet := batch[len(batch)-1]
+		ok, err := protocol.ReceiveBatchAck(c.conn)
+		c.conn.Close()
 		if err != nil {
-			if err == io.EOF && end == totalBets{
-				log.Infof("action: apuestas_enviadas | result: success | client_id: %v | last_bet: %v",
-					c.config.ID, lastBet)
-			}
-			log.Errorf("action: receive_ack | result: fail | client_id: %v | last_bet: %v | error: %v",
-				c.config.ID, lastBet, err)
+			log.Errorf("action: receive_batch_ack | result: fail | client_id: %v | error: %v", c.config.ID, err)
 			return
 		}
 
-		log.Infof("action: apuestas_enviadas | result: success | client_id: %v | batch_size: %d",
-			c.config.ID, len(batch))
-
-			num, err := strconv.Atoi(lastBet.Number)
-			if err == nil && num == ack{
-				log.Errorf("action: apuestas_enviadas | result: success | client_id: %v | last_bet: %v | ack_number: %d",
-					c.config.ID, lastBet, ack)
-			} else{
-				log.Errorf("action: apuestas_enviadas | result: fail | client_id: %v | last_bet: %v | error: %v",
-					c.config.ID, lastBet, err)
+		if ok {
+			for _, b := range batch {
+				log.Infof("action: apuesta_enviada | result: success | dni: %s | numero: %s", b.Document, b.Number)
 			}
-
+			log.Infof("action: apuestas_enviadas | result: success | client_id: %v | batch_size: %d", c.config.ID, len(batch))
+		} else {
+			log.Errorf("action: apuestas_enviadas | result: fail | client_id: %v | batch_size: %d", c.config.ID, len(batch))
+			return
 		}
-	
+	}
 
 	log.Infof("action: apuestas_enviadas | result: success | client_id: %v", c.config.ID)
 }

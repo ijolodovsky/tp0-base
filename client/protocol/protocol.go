@@ -29,7 +29,7 @@ func SendBetBatch(conn net.Conn, bets []model.Bet) error {
 		)
 		betStrings = append(betStrings, betStr)
 	}
-	
+
 	payload := strings.Join(betStrings, "\n")
 	data := []byte(payload)
 	length := uint16(len(data))
@@ -58,6 +58,15 @@ func ReceiveAck(conn net.Conn) (int, error) {
 
 	ackNumber := int(binary.BigEndian.Uint32(buf))
 	return ackNumber, nil
+}
+
+// ReceiveBatchAck lee 1 byte: 1=éxito del batch, 0=fallo
+func ReceiveBatchAck(conn net.Conn) (bool, error) {
+	buf := make([]byte, 1)
+	if err := readAll(conn, buf); err != nil {
+		return false, fmt.Errorf("error reading batch ACK: %w", err)
+	}
+	return buf[0] == 1, nil
 }
 
 func writeAll(conn net.Conn, data []byte) error {
