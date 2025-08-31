@@ -65,7 +65,6 @@ def _read_n_bytes(sock, n: int) -> bytes:
                 raise ConnectionError(f"Socket closed before reading all bytes - expected {n}, got {len(buf)}")
         buf += chunk
     
-    logging.debug(f"Successfully read {len(buf)} bytes in {read_count} attempts")
     return buf
 
 def send_ack(sock, bet: Bet):

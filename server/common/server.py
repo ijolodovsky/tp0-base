@@ -38,14 +38,9 @@ class Server:
         If a problem arises in the communication with the client, the
         client socket will also be closed
         """
-        client_addr = client_sock.getpeername()
-        logging.debug(f"DEBUG: handle_connection_start for client {client_addr}")
         
         try:
-            # Intentar leer como batch primero
-            logging.debug(f"DEBUG: reading_batch from client {client_addr}")
             bets = read_bet_batch(client_sock)
-            logging.debug(f"DEBUG: batch_read_success from client {client_addr}, bets_count: {len(bets)}")
             
             # Procesar todas las apuestas del batch
             all_success = True
@@ -57,21 +52,15 @@ class Server:
                 all_success = False
                 logging.error(f"action: store_bets | result: fail | error: {e}")
             
-            # Logging según especificaciones
+            # Logging segun resultado del batch
             if all_success:
                 logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
             else:
                 logging.info(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)}")
             
-            # Enviar respuesta según el resultado
-            logging.debug(f"DEBUG: sending_batch_ack to client {client_addr}, success: {all_success}")
             send_batch_ack(client_sock, all_success)
-            logging.debug(f"DEBUG: batch_ack_sent to client {client_addr}")
             
         except Exception as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")
-            logging.debug(f"DEBUG: error occurred with client {client_addr}: {e}")
         finally:
-            logging.debug(f"DEBUG: closing_connection for client {client_addr}")
             client_sock.close()
-            logging.debug(f"DEBUG: connection_closed for client {client_addr}")
