@@ -90,11 +90,15 @@ func (c *Client) processBets() {
 		}
 
 		ok, err := protocol.ReceiveBatchAck(c.conn)
-		c.conn.Close()
 		if err != nil {
 			log.Errorf("action: receive_batch_ack | result: fail | client_id: %v | error: %v", c.config.ID, err)
+			c.conn.Close()
 			return
 		}
+
+		// Dar tiempo al servidor para procesar antes de cerrar
+		time.Sleep(10 * time.Millisecond)
+		c.conn.Close()
 
 		if ok {
 			for _, b := range batch {

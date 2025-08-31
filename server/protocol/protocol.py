@@ -1,6 +1,7 @@
 import struct
 from common.utils import Bet
 from typing import List
+import logging
 
 def read_bet(sock) -> Bet:
     """
@@ -52,11 +53,19 @@ def _read_n_bytes(sock, n: int) -> bytes:
     Lee exactamente n bytes del socket, maneja short reads.
     """
     buf = b""
+    read_count = 0
     while len(buf) < n:
         chunk = sock.recv(n - len(buf))
+        read_count += 1
+        logging.debug(f"Read attempt {read_count}: expected {n - len(buf)} bytes, got {len(chunk)} bytes")
         if not chunk:
-            raise ConnectionError("Socket closed before reading all bytes")
+            if len(buf) == 0:
+                raise ConnectionError("No data received - socket closed immediately")
+            else:
+                raise ConnectionError(f"Socket closed before reading all bytes - expected {n}, got {len(buf)}")
         buf += chunk
+    
+    logging.debug(f"Successfully read {len(buf)} bytes in {read_count} attempts")
     return buf
 
 def send_ack(sock, bet: Bet):
