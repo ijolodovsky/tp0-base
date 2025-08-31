@@ -11,40 +11,39 @@ import (
 
 // SendBets envía las apuestas usando el protocolo de longitud-prefijada
 func SendBets(conn net.Conn, bets []model.Bet) error {
-	// Armamos el payload como string separado por "|" en el orden compatible con Python
-	var payload string
-	for i, bet := range bets {
-		line := fmt.Sprintf("%d|%s|%s|%s|%s|%d",
-			bet.AgencyId,
-			bet.Name,
-			bet.LastName,
-			bet.Document,
-			bet.BirthDate,
-			bet.Number,
-		)
-		if i > 0 {
-			payload += "\n"
-		}
-		payload += line
-	}
+    var payload string
+    for i, bet := range bets {
+        line := fmt.Sprintf("%d|%s|%s|%s|%s|%d",
+            bet.AgencyId,
+            bet.Name,
+            bet.LastName,
+            bet.Document,
+            bet.BirthDate,
+            bet.Number,
+        )
+        if i > 0 {
+            payload += "\n"
+        }
+        payload += line
+    }
 
-	data := []byte(payload)
-	length := uint16(len(data))
+    data := []byte(payload)
+    length := uint16(len(data))
 
-	// Preparamos el header de 2 bytes big-endian
-	header := make([]byte, 2)
-	binary.BigEndian.PutUint16(header, length)
+    // Header de 2 bytes
+    header := make([]byte, 2)
+    binary.BigEndian.PutUint16(header, length)
 
-	// Enviamos primero el header, luego el payload
-	if err := writeAll(conn, header); err != nil {
-		return fmt.Errorf("error sending header: %w", err)
-	}
-	if err := writeAll(conn, data); err != nil {
-		return fmt.Errorf("error sending payload: %w", err)
-	}
+    if err := writeAll(conn, header); err != nil {
+        return fmt.Errorf("error sending header: %w", err)
+    }
+    if err := writeAll(conn, data); err != nil {
+        return fmt.Errorf("error sending payload: %w", err)
+    }
 
-	return nil
+    return nil
 }
+
 
 // ReceiveAck lee los 4 bytes de confirmación del servidor
 func ReceiveAck(conn net.Conn) (int, error) {
