@@ -6,15 +6,15 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"time"
 	"syscall"
+	"time"
 
 	"github.com/op/go-logging"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 
-	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/model"
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/common"
+	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/model"
 )
 
 var log = logging.MustGetLogger("log")
@@ -40,7 +40,6 @@ func LoadBetsFromCSV(agencyId string) ([]model.Bet, error) {
 		if len(record) != 5 {
 			return nil, fmt.Errorf("invalid record in line %d: expected 5 fields, got %d", i+1, len(record))
 		}
-
 
 		bet := model.Bet{
 			AgencyId:  agencyId,
@@ -143,8 +142,7 @@ func run() error {
 	}
 
 	if err := InitLogger(v.GetString("log.level")); err != nil {
-		log.Criticalf("%s", err)
-		os.Exit(1)
+		return fmt.Errorf("error inicializando logger: %w", err)
 	}
 
 	// Cargar apuestas desde CSV
@@ -162,10 +160,10 @@ func run() error {
 	PrintConfig(v)
 
 	clientConfig := common.ClientConfig{
-		ServerAddress: v.GetString("server.address"),
-		ID:            v.GetString("id"),
-		LoopAmount:    v.GetInt("loop.amount"),
-		LoopPeriod:    v.GetDuration("loop.period"),
+		ServerAddress:  v.GetString("server.address"),
+		ID:             v.GetString("id"),
+		LoopAmount:     v.GetInt("loop.amount"),
+		LoopPeriod:     v.GetDuration("loop.period"),
 		BatchMaxAmount: v.GetInt("batch.maxAmount"),
 	}
 
