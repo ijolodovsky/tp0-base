@@ -24,9 +24,9 @@ def initialize_config():
 
     config_params = {}
     try:
-        config_params["port"] = int(os.getenv('SERVER_PORT', config["DEFAULT"]["SERVER_PORT"]))
-        config_params["listen_backlog"] = int(os.getenv('SERVER_LISTEN_BACKLOG', config["DEFAULT"]["SERVER_LISTEN_BACKLOG"]))
-        config_params["logging_level"] = os.getenv('LOGGING_LEVEL', config["DEFAULT"]["LOGGING_LEVEL"])
+        config_params["port"] = int(os.getenv('SERVER_PORT', config.get("DEFAULT", "SERVER_PORT", fallback="12345")))
+        config_params["listen_backlog"] = int(os.getenv('SERVER_LISTEN_BACKLOG', config.get("DEFAULT", "SERVER_LISTEN_BACKLOG", fallback="5")))
+        config_params["logging_level"] = os.getenv('LOGGING_LEVEL', config.get("DEFAULT", "LOGGING_LEVEL", fallback="DEBUG"))
     except KeyError as e:
         raise KeyError("Key was not found. Error: {} .Aborting server".format(e))
     except ValueError as e:
@@ -36,24 +36,31 @@ def initialize_config():
 
 
 def main():
-    config_params = initialize_config()
-    logging_level = config_params["logging_level"]
-    port = config_params["port"]
-    listen_backlog = config_params["listen_backlog"]
-    initialize_log(logging_level)
+    try:
+        config_params = initialize_config()
+        logging_level = config_params["logging_level"]
+        port = config_params["port"]
+        listen_backlog = config_params["listen_backlog"]
+        initialize_log(logging_level)
 
-    # Log config parameters at the beginning of the program to verify the configuration
-    # of the component
-    logging.debug(f"action: config | result: success | port: {port} | "
-                  f"listen_backlog: {listen_backlog} | logging_level: {logging_level}")
+        # Log config parameters at the beginning of the program to verify the configuration
+        # of the component
+        logging.debug(f"action: config | result: success | port: {port} | "
+                      f"listen_backlog: {listen_backlog} | logging_level: {logging_level}")
 
-    # Initialize server and start server loop
-    server = Server(port, listen_backlog)
-    signal.signal(signal.SIGTERM, server.handle_sigterm)
-    
-    logging.debug("Starting server...")
-    server.run()
-    logging.debug("Server finished, main process will exit")
+        # Initialize server and start server loop
+        server = Server(port, listen_backlog)
+        signal.signal(signal.SIGTERM, server.handle_sigterm)
+        
+        logging.debug("Starting server...")
+        server.run()
+        logging.debug("Server finished, main process will exit")
+    except Exception as e:
+        # Si hay cualquier error, asegurar que se loguee
+        print(f"SERVER ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 def initialize_log(logging_level):
     """

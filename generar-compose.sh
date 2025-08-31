@@ -18,6 +18,7 @@ services:
     entrypoint: python3 /main.py
     environment:
         - PYTHONUNBUFFERED=1
+        - LOGGING_LEVEL=DEBUG
     networks:
       - testing_net
     volumes:
