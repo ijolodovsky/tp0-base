@@ -18,15 +18,18 @@ class Server:
         signal.signal(signal.SIGTERM, self.handle_sigterm)
 
     def run(self):
-        # Atiende a un cliente y procesa múltiples batches
+        # Atiende a un cliente y procesa múltiples batches, luego termina
         if self.running:
             try:
                 client_sock, addr = self._server_socket.accept()
                 logging.info(f"action: accept_connections | result: success | ip: {addr[0]}")
                 self.__handle_client_connection(client_sock)
+                logging.debug("Client connection handled, server will exit")
             except OSError:
+                logging.debug("OSError in accept, server will exit")
                 pass
         self.running = False
+        logging.debug("Server shutting down")
         os._exit(0)
 
     def handle_sigterm(self, signum, frame):
@@ -68,3 +71,4 @@ class Server:
                     break
         finally:
             client_sock.close()
+            logging.debug("Client connection closed, server will exit")

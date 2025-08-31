@@ -64,6 +64,9 @@ func InitConfig() (*viper.Viper, []model.Bet, error) {
 		return nil, nil, fmt.Errorf("id inválido: %w", err)
 	}
 
+	log.Infof("[DEBUG] Cliente configurado - ID: %d, BatchMaxAmount: %d", id, v.GetInt("batch.maxAmount"))
+	log.Infof("[DEBUG] Variables de entorno - CLI_BATCH_MAXAMOUNT: %s", os.Getenv("CLI_BATCH_MAXAMOUNT"))
+
 	file, err := os.Open("/agency.csv")
 	if err != nil {
 		return nil, nil, fmt.Errorf("error opening file: %w", err)
