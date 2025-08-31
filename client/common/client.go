@@ -1,3 +1,4 @@
+
 package common
 
 import (
@@ -86,12 +87,16 @@ func (c *Client) sendBatch(batch []model.Bet) error {
 	if err := c.createClientSocket(); err != nil {
 		return err
 	}
-	defer c.conn.Close()
+	defer func() {
+		// delay antes de cerrar la conexión para evitar problemas con el socket
+		time.Sleep(100 * time.Millisecond)
+		c.conn.Close()
+	}()
 
 	// Verificar que el tamaño del batch no exceda 8kB aproximadamente
 	estimatedSize := c.estimateBatchSize(batch)
 	if estimatedSize > 8000 { // 8kB
-		log.Warnf("Batch size (%d bytes) exceeds 8kB limit", estimatedSize)
+		log.Errorf("Batch size (%d bytes) exceeds 8kB limit", estimatedSize)
 	}
 
 	// Enviar batch de apuestas
@@ -139,4 +144,3 @@ func (c *Client) Stop() {
 
 	log.Infof("action: exit | result: success | client_id: %v", c.config.ID)
 }
-

@@ -136,10 +136,16 @@ func PrintConfig(v *viper.Viper) {
 }
 
 func main() {
+	if err := run(); err != nil {
+		log.Criticalf("Error fatal: %s", err)
+		return
+	}
+}
+
+func run() error {
 	v, err := InitConfig()
 	if err != nil {
-		log.Criticalf("%s", err)
-		os.Exit(1)
+		return fmt.Errorf("error inicializando configuración: %w", err)
 	}
 
 	if err := InitLogger(v.GetString("log.level")); err != nil {
@@ -149,15 +155,13 @@ func main() {
 
 	agencyId, err := strconv.Atoi(v.GetString("id"))
 	if err != nil {
-		log.Criticalf("ID inválido: %s", err)
-		os.Exit(1)
+		return fmt.Errorf("ID inválido: %w", err)
 	}
 
 	// Cargar apuestas desde CSV
 	bets, err := LoadBetsFromCSV(agencyId)
 	if err != nil {
-		log.Criticalf("Error cargando apuestas desde CSV: %s", err)
-		os.Exit(1)
+		return fmt.Errorf("error cargando apuestas desde CSV: %w", err)
 	}
 
 	log.Infof("Cargadas %d apuestas desde CSV para agencia %d", len(bets), agencyId)
@@ -185,6 +189,6 @@ func main() {
 
 	client.StartClientLoop(sigchan)
 
-	os.Exit(0)
-
+	log.Infof("action: exit | result: success | client_id: %v", v.GetString("id"))
+	return nil
 }
