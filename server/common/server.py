@@ -23,13 +23,11 @@ class Server:
         while self.running:
             try:
                 client_sock, addr = self._server_socket.accept()
-                logging.info(f"action: accept_connections | result: success | ip: {addr[0]}")
                 self.__handle_client_connection(client_sock)
             except OSError:
                 break
 
     def handle_sigterm(self, signum, frame):
-        logging.info(f'action: shutdown | result: in_progress')
         self.running = False
         
         # Cerrar todas las conexiones pendientes de consultas de ganadores
@@ -37,7 +35,6 @@ class Server:
         
         # Cerrar el socket del servidor
         self._server_socket.close()
-        logging.info(f'action: shutdown | result: success')
 
     def __handle_client_connection(self, client_sock):
         """
@@ -61,7 +58,6 @@ class Server:
                     store_bets(bets)
                 except Exception as e:
                     all_success = False
-                    logging.error(f"action: store_bets | result: fail | error: {e}")
                 
                 # Logging segun resultado del batch
                 if all_success:
@@ -74,12 +70,9 @@ class Server:
             elif msg_type == 'FIN_APUESTAS':
                 agency_id = content
                 self.finishedAgencies += 1
-                logging.info(f"action: agency_finished | result: success | agency: {agency_id} | total_finished: {self.finishedAgencies}")
-                
                 # mira si ya terminaron las 5 agencias
                 if self.finishedAgencies == 5 and not self.sorteoRealizado:
                     self.sorteoRealizado = True
-                    logging.info("action: sorteo | result: success")
                     
                     # Responder a todos los clientes que estaban esperando ganadores
                     self.respond_pending_winners()
@@ -92,7 +85,6 @@ class Server:
                 if not self.sorteoRealizado:
                     # Agregar cliente a la lista de espera (NO cerrar conexión)
                     self.pending_winners_queries.append((client_sock, int(agency_id)))
-                    logging.info(f"action: consulta_ganadores | result: in_progress | agency: {agency_id}")
                     return
                 else:
                     # Busco los ganadores de esta agencia
@@ -101,7 +93,6 @@ class Server:
                     logging.info(f"action: consulta_ganadores | result: success | cant_ganadores: {len(winners)} | agency: {agency_id}")
 
         except Exception as e:
-            logging.error(f"action: receive_message | result: fail | error: {e}")
             self.remove_from_pending(client_sock)
         finally:
             # Solo cerrar si no está en pending_winners
@@ -125,7 +116,6 @@ class Server:
             
             return winners_dni
         except Exception as e:
-            logging.error(f"action: get_winners_for_agency | result: fail | agency: {agency_id} | error: {e}")
             return []
 
     def respond_pending_winners(self):
@@ -158,13 +148,10 @@ class Server:
         for client_sock, agency_id in self.pending_winners_queries:
             try:
                 client_sock.close()
-                logging.debug(f"action: close_pending_connection | result: success | agency: {agency_id}")
             except Exception as e:
                 logging.error(f"action: close_pending_connection | result: fail | agency: {agency_id} | error: {e}")
-        
         # Limpiar la lista
         self.pending_winners_queries.clear()
-        logging.info(f"action: close_pending_connections | result: success")
 
     def remove_from_pending(self, client_sock):
         """

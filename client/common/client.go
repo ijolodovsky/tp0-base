@@ -98,15 +98,13 @@ func (c *Client) processBets() {
 		time.Sleep(10 * time.Millisecond)
 		c.conn.Close()
 
-		if ok {
-			log.Infof("action: apuesta_enviada | result: success | cantidad: %d", len(batch))
-		} else {
+		if !ok {
 			log.Errorf("action: apuesta_enviada | result: fail | client_id: %v | batch_size: %d", c.config.ID, len(batch))
-			return
 		}
+
 	}
 
-	log.Infof("action: apuesta_enviada | result: success | client_id: %v", c.config.ID)
+	log.Infof("action: apuesta_enviada | result: success | cantidad: %d", totalBets)
 
 	// Enviar notificación de finalización
 	c.finishNotification()
