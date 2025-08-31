@@ -5,7 +5,7 @@ import os
 import time
 
 from common.utils import store_bets
-from protocol.protocol import read_bets, send_ack
+from protocol.protocol import read_bets, send_ack, send_error_ack
 
 class Server:
     def __init__(self, port, listen_backlog):
@@ -23,30 +23,26 @@ class Server:
         return not self.running
 
     def run(self):
-        # Atiende a un cliente y procesa múltiples batches, luego termina
         logging.debug("Server run() method started")
         try:
-            logging.debug("Waiting for client connection...")
-            client_sock, addr = self._server_socket.accept()
-            logging.info(f"action: accept_connections | result: success | ip: {addr[0]}")
-            self.__handle_client_connection(client_sock)
-            logging.debug("Client connection handled, server will exit")
-        except OSError as e:
-            logging.debug(f"OSError in accept, server will exit: {e}")
-        
-        # Cerrar el socket del servidor y terminar naturalmente
-        if self._server_socket:
-            self._server_socket.close()
-            logging.debug("Server socket closed")
-            # Verificar que el socket esté cerrado
-            try:
-                self._server_socket.getsockname()
-                logging.warning("Server socket still open after close")
-            except:
-                logging.debug("Server socket closed successfully")
-        logging.debug("Server shutting down")
-        self.running = False
-        logging.debug("Server run() method finished")
+            while self.running:
+                logging.debug("Waiting for client connection...")
+                try:
+                    client_sock, addr = self._server_socket.accept()
+                except OSError as e:
+                    logging.debug(f"OSError in accept, server will exit: {e}")
+                    break
+
+                logging.info(f"action: accept_connections | result: success | ip: {addr[0]}")
+                self.__handle_client_connection(client_sock)
+                logging.debug("Client connection handled, server ready for next client")
+        finally:
+            if self._server_socket:
+                self._server_socket.close()
+                logging.debug("Server socket closed")
+            self.running = False
+            logging.debug("Server run() method finished")
+
 
     def handle_sigterm(self, signum, frame):
         logging.info(f'action: shutdown | result: in_progress | motivo: SIGTERM recibido')
@@ -75,7 +71,8 @@ class Server:
                         break
 
                 if len(bets) == 0:
-                    logging.error(f"action: apuesta_recibida | result: fail | cantidad: 0 | error: empty_batch")
+                    logging.error(f"action: apuesta_recibida | result: fail | cantidad: 0")
+                    send_error_ack(client_sock)
                     break
 
                 try:
@@ -84,10 +81,11 @@ class Server:
                     send_ack(client_sock, bets)
                     # Dar tiempo para que el cliente procese el ACK
                     time.sleep(0.05)  # 50ms
-                except Exception as store_error:
-                    # Si falla el almacenamiento, loguear como error y terminar
-                    logging.error(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)} | error: {store_error}")
+                except Exception:
+                    logging.error(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)}")
+                    send_error_ack(client_sock)
                     break
+
         finally:
             client_sock.close()
             logging.debug("Client connection closed, server will exit")

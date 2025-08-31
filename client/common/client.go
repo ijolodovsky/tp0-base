@@ -88,6 +88,12 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 				break
 			}
 
+			if ack == -1 {
+				log.Errorf("action: apuestas_enviadas | result: fail | cantidad: %d | client_id: %v", totalBetsSent, c.config.ID)
+				success = false
+				break
+			}
+
 			// Verificar que el ACK corresponda a la última apuesta del chunk
 			lastBet := chunk[len(chunk)-1]
 			if ack == lastBet.Number {

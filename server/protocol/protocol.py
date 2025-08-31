@@ -71,3 +71,10 @@ def _send_all(sock, data: bytes):
         if sent == 0:
             raise ConnectionError("Socket connection broken")
         total_sent += sent
+
+def send_error_ack(sock):
+    """
+    Envía un ACK de error (-1) al cliente.
+    """
+    ack = struct.pack('>i', -1)  # entero con signo de 4 bytes
+    _send_all(sock, ack)
