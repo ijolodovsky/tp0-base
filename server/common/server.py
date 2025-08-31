@@ -39,13 +39,13 @@ class Server:
         client socket will also be closed
         """
         client_addr = client_sock.getpeername()
-        logging.debug(f"action: handle_connection_start | client: {client_addr}")
+        logging.debug(f"DEBUG: handle_connection_start for client {client_addr}")
         
         try:
             # Intentar leer como batch primero
-            logging.debug(f"action: reading_batch | client: {client_addr}")
+            logging.debug(f"DEBUG: reading_batch from client {client_addr}")
             bets = read_bet_batch(client_sock)
-            logging.debug(f"action: batch_read_success | client: {client_addr} | bets_count: {len(bets)}")
+            logging.debug(f"DEBUG: batch_read_success from client {client_addr}, bets_count: {len(bets)}")
             
             # Procesar todas las apuestas del batch
             all_success = True
@@ -64,13 +64,14 @@ class Server:
                 logging.info(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)}")
             
             # Enviar respuesta según el resultado
-            logging.debug(f"action: sending_batch_ack | client: {client_addr} | success: {all_success}")
+            logging.debug(f"DEBUG: sending_batch_ack to client {client_addr}, success: {all_success}")
             send_batch_ack(client_sock, all_success)
-            logging.debug(f"action: batch_ack_sent | client: {client_addr}")
+            logging.debug(f"DEBUG: batch_ack_sent to client {client_addr}")
             
         except Exception as e:
-            logging.error(f"action: receive_message | result: fail | client: {client_addr} | error: {e}")
+            logging.error(f"action: receive_message | result: fail | error: {e}")
+            logging.debug(f"DEBUG: error occurred with client {client_addr}: {e}")
         finally:
-            logging.debug(f"action: closing_connection | client: {client_addr}")
+            logging.debug(f"DEBUG: closing_connection for client {client_addr}")
             client_sock.close()
-            logging.debug(f"action: connection_closed | client: {client_addr}")
+            logging.debug(f"DEBUG: connection_closed for client {client_addr}")
