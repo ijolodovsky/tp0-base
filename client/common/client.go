@@ -36,13 +36,11 @@ func NewClient(config ClientConfig, bets []model.Bet) *Client {
 
 // createClientSocket inicializa la conexión
 func (c *Client) createClientSocket() error {
-	log.Debugf("intentando conectar a %s", c.config.ServerAddress)
 	conn, err := net.Dial("tcp", c.config.ServerAddress)
 	if err != nil {
 		log.Errorf("action: connect | result: fail | client_id: %v | error: %v", c.config.ID, err)
 		return err
 	}
-	log.Debugf("conexión exitosa a %s", c.config.ServerAddress)
 	c.conn = conn
 	return nil
 }
@@ -102,9 +100,6 @@ func (c *Client) processBets() {
 		c.conn.Close()
 
 		if ok {
-			for _, b := range batch {
-				log.Infof("action: apuesta_enviada | result: success | dni: %s | numero: %s", b.Document, b.Number)
-			}
 			log.Infof("action: apuesta_enviada | result: success | cantidad: %d", len(batch))
 		} else {
 			log.Errorf("action: apuesta_enviada | result: fail | client_id: %v | batch_size: %d", c.config.ID, len(batch))
@@ -179,8 +174,6 @@ func (c *Client) consultWinners() {
 
 		if err != nil {
 			if strings.Contains(err.Error(), "ERROR_NO_SORTEO") {
-				log.Infof("action: consulta_ganadores | result: waiting | client_id: %v | attempt: %d | reason: sorteo_pending",
-					c.config.ID, attempt)
 				if attempt < maxRetries {
 					time.Sleep(retryDelay)
 					continue
@@ -192,8 +185,6 @@ func (c *Client) consultWinners() {
 				c.config.ID, attempt, err)
 			return
 		}
-
-		log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %d", len(winners))
 
 		if len(winners) > 0 {
 			log.Infof("action: ganadores_recibidos | result: success | client_id: %v | ganadores: %v",
