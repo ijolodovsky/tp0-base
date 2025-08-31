@@ -3,7 +3,7 @@ import socket
 import logging
 
 from common.utils import store_bets, load_bets, has_won
-from protocol.protocol import read_bet, read_message, send_ack, read_bet_batch, send_batch_ack, send_finish_ack, send_winners_list
+from protocol.protocol import read_message, send_batch_ack, send_finish_ack, send_winners_list, parse_bet_batch_content
 
 class Server:
     def __init__(self, port, listen_backlog, expected_agencies):
@@ -42,64 +42,63 @@ class Server:
 
     def __handle_client_connection(self, client_sock):
         """
-        Read message from a specific client socket and closes the socket
-
-        If a problem arises in the communication with the client, the
-        client socket will also be closed
+        Handle multiple messages from a client connection in sequence:
+        1. Multiple BATCH_APUESTAS messages
+        2. One FIN_APUESTAS message
+        3. One CONSULTA_GANADORES message
         """
         
         try:
-            msg_type, content = read_message(client_sock)
+            # manejar multiples mensajes en una sola conexion
+            while True:
+                msg_type, content = read_message(client_sock)
 
-            if msg_type == 'BATCH_APUESTAS':
-                # El contenido ya fue leído en read_message(), necesitamos parsearlo
-                from protocol.protocol import parse_bet_batch_content
-                bets = parse_bet_batch_content(content)
+                if msg_type == 'BATCH_APUESTAS':
+                    bets = parse_bet_batch_content(content)
 
-                # Procesar todas las apuestas del batch
-                all_success = True
-                try:
-                    store_bets(bets)
-                except Exception as e:
-                    all_success = False
-                
-                # Logging segun resultado del batch
-                if all_success:
-                    logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
-                else:
-                    logging.info(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)}")
-                
-                send_batch_ack(client_sock, all_success)
-            
-            elif msg_type == 'FIN_APUESTAS':
-                agency_id = content
-                self.finishedAgencies += 1
-                # mira si ya terminaron todas las agencias esperadas
-                if self.finishedAgencies == self.expected_agencies and not self.sorteoRealizado:
-                    self.sorteoRealizado = True
+                    all_success = True
+                    try:
+                        store_bets(bets)
+                    except Exception as e:
+                        all_success = False
                     
-                    # Responder a todos los clientes que estaban esperando ganadores
-                    self.respond_pending_winners()
+                    # Logging segun resultado del batch
+                    if all_success:
+                        logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
+                    else:
+                        logging.info(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)}")
+                    
+                    send_batch_ack(client_sock, all_success)
                 
-                send_finish_ack(client_sock, True)
-                
-            elif msg_type == 'CONSULTA_GANADORES':
-                agency_id = content
-                
-                if not self.sorteoRealizado:
-                    # Agregar cliente a la lista de espera (NO cerrar conexión)
-                    self.pending_winners_queries.append((client_sock, int(agency_id)))
-                    return
-                else:
-                    # Busco los ganadores de esta agencia
-                    winners = self.get_winners_agency(int(agency_id))
-                    send_winners_list(client_sock, winners, sorteoRealizado=True)
-                    logging.info(f"action: consulta_ganadores | result: success | cant_ganadores: {len(winners)} | agency: {agency_id}")
+                elif msg_type == 'FIN_APUESTAS':
+                    agency_id = content
+                    self.finishedAgencies += 1
+                    # mira si ya terminaron todas las agencias esperadas
+                    if self.finishedAgencies == self.expected_agencies and not self.sorteoRealizado:
+                        self.sorteoRealizado = True
+                        
+                        # Responder a todos los clientes que estaban esperando ganadores
+                        self.respond_pending_winners()
+                    
+                    send_finish_ack(client_sock, True)
+                    
+                elif msg_type == 'CONSULTA_GANADORES':
+                    agency_id = content
+                    
+                    if not self.sorteoRealizado:
+                        # Agregar cliente a la lista de espera (no cierra la conexion)
+                        self.pending_winners_queries.append((client_sock, int(agency_id)))
+                        return
+                    else:
+                        # Busco los ganadores de esta agencia
+                        winners = self.get_winners_agency(int(agency_id))
+                        send_winners_list(client_sock, winners, sorteoRealizado=True)
+                        logging.info(f"action: consulta_ganadores | result: success | cant_ganadores: {len(winners)} | agency: {agency_id}")
+                        break
 
         except Exception as e:
             self.remove_from_pending(client_sock)
         finally:
-            # Solo cerrar si no está en pending_winners
             if not self.is_connection_pending(client_sock):
                 try:
                     client_sock.close()
@@ -139,7 +138,6 @@ class Server:
                 except:
                     pass
         
-        # Limpiar la lista de consultas pendientes
         self.pending_winners_queries.clear()
 
     def close_pending_connections(self):
@@ -154,7 +152,6 @@ class Server:
                 client_sock.close()
             except Exception as e:
                 logging.error(f"action: close_pending_connection | result: fail | agency: {agency_id} | error: {e}")
-        # Limpiar la lista
         self.pending_winners_queries.clear()
 
     def remove_from_pending(self, client_sock):
