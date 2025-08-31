@@ -6,46 +6,54 @@ def read_bets(sock) -> list[Bet]:
     """
     Lee las apuestas enviadas por el cliente usando longitud-prefijada (2 bytes) y separador '|'.
     """
-    header = _read_n_bytes(sock, 2)
+    try:
+        header = _read_n_bytes(sock, 2)
+    except ConnectionError as e:
+        logging.info("Client closed connection before sending header")
+        return []
+
     if not header:
         raise ConnectionError("No header received")
 
     message_length = struct.unpack('>H', header)[0]
     logging.debug(f"Reading message of length: {message_length}")
 
-    data = _read_n_bytes(sock, message_length)
-
-    # --- DEBUG ---
-    logging.debug(f"Raw bytes received: {data}")
     try:
+        data = _read_n_bytes(sock, message_length)
+    except ConnectionError as e:
+        # Si se recibió algo, procesar lo que se tenga
+        if e.args and len(e.args) > 1 and isinstance(e.args[1], bytes) and e.args[1]:
+            data = e.args[1]
+            logging.warning(f"Partial data received: {len(data)}/{message_length} bytes")
+        else:
+            raise
+
         text = data.decode('utf-8')
-    except UnicodeDecodeError as e:
-        logging.error(f"Error decoding bytes: {e}")
-        raise
+        bets_raw = text.split('\n')
+        bets = []
 
-    logging.debug(f"Decoded text: {text}")
+        for line in bets_raw:
+            if not line.strip():
+                continue
+            fields = line.split('|')
+            if len(fields) != 6:
+                logging.error(f"Invalid bet line: {line}")
+                continue
+            try:
+                bet = Bet(
+                    agency=fields[0],
+                    first_name=fields[1],
+                    last_name=fields[2],
+                    document=fields[3],
+                    birthdate=fields[4],
+                    number=int(fields[5])
+                )
+                bets.append(bet)
+            except Exception as ex:
+                logging.error(f"Failed to parse bet: {line} | error: {ex}")
+                continue
 
-    # Divido el payload en las distintas apuestas
-    bets_raw = text.split('\n')
-    bets = []
-
-    for line in bets_raw:
-        if not line.strip():
-            continue
-        fields = line.split('|')
-        if len(fields) != 6:
-            raise ValueError(f"Invalid bet received, expected 6 fields but got {len(fields)}")
-        bet = Bet(
-            agency=fields[0],
-            first_name=fields[1],
-            last_name=fields[2],
-            document=fields[3],
-            birthdate=fields[4],
-            number=int(fields[5])
-        )
-        bets.append(bet)
-
-    return bets
+        return bets
 
 def _read_n_bytes(sock, n: int) -> bytes:
     """
@@ -55,6 +63,8 @@ def _read_n_bytes(sock, n: int) -> bytes:
     while len(buf) < n:
         chunk = sock.recv(n - len(buf))
         if not chunk:
+            if buf:
+                raise ConnectionError("Socket closed before reading all bytes", buf)
             raise ConnectionError("Socket closed before reading all bytes")
         buf += chunk
     return buf
