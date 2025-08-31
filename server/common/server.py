@@ -128,7 +128,7 @@ class Server:
             try:
                 winners = self.get_winners_agency(agency_id)
                 send_winners_list(client_sock, winners, sorteoRealizado=True)
-                logging.info(f"action: consulta_ganadores | result: success | cant_ganadores: {len(winners)} | agency: {agency_id}")
+                logging.info(f"action: ganadores_enviados | result: success | cant_ganadores: {len(winners)} | agency: {agency_id}")
                 client_sock.close()
             except Exception as e:
                 logging.error(f"action: respond_pending_winners | result: fail | agency: {agency_id} | error: {e}")
