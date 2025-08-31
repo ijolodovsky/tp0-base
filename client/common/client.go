@@ -3,7 +3,6 @@ package common
 import (
 	"net"
 	"os"
-	"time"
 
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/model"
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/protocol"
@@ -15,8 +14,6 @@ var log = logging.MustGetLogger("log")
 type ClientConfig struct {
 	ID             string
 	ServerAddress  string
-	LoopAmount     int
-	LoopPeriod     time.Duration
 	BatchMaxAmount int
 }
 
@@ -53,13 +50,19 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 		log.Infof("action: shutdown | result: success")
 		return
 	default:
+		// Establecer conexión una sola vez
+		if err := c.createClientSocket(); err != nil {
+			return
+		}
+		defer c.conn.Close()
+
 		c.processBets()
 	}
 }
 
-// processBets procesa todas las apuestas enviándolas en batches
+// processBets procesa todas las apuestas enviándolas en batches usando una sola conexión
 func (c *Client) processBets() {
-	batchSize := c.config.BatchMaxAmount
+	maxBatchSize := c.config.BatchMaxAmount
 	totalBets := len(c.bets)
 
 	if totalBets == 0 {
@@ -67,51 +70,59 @@ func (c *Client) processBets() {
 		return
 	}
 
-	if batchSize <= 0 {
-		batchSize = totalBets
-	}
+	log.Infof("action: starting_batch_processing | client_id: %v | total_bets: %d | max_batch_size: %d",
+		c.config.ID, totalBets, maxBatchSize)
 
-	for i := 0; i < totalBets; i += batchSize {
-		end := i + batchSize
-		if end > totalBets {
-			end = totalBets
-		}
-
-		batch := c.bets[i:end]
-		if err := c.createClientSocket(); err != nil {
-			return
-		}
+	i := 0
+	batchNumber := 1
+	for i < totalBets {
+		// Crear batch respetando tanto el límite de cantidad como el de 8KB
+		batch := c.createBatch(i, maxBatchSize)
 
 		if err := protocol.SendBetBatch(c.conn, batch); err != nil {
 			log.Errorf("action: send_batch | result: fail | client_id: %v | batch_size: %d | error: %v",
 				c.config.ID, len(batch), err)
-			c.conn.Close()
 			return
 		}
 
 		ok, err := protocol.ReceiveBatchAck(c.conn)
 		if err != nil {
 			log.Errorf("action: receive_batch_ack | result: fail | client_id: %v | error: %v", c.config.ID, err)
-			c.conn.Close()
 			return
 		}
-
-		// Dar tiempo al servidor para procesar antes de cerrar
-		time.Sleep(10 * time.Millisecond)
-		c.conn.Close()
 
 		if ok {
-			for _, b := range batch {
-				log.Infof("action: apuesta_enviada | result: success | dni: %s | numero: %s", b.Document, b.Number)
-			}
-			log.Infof("action: apuesta_enviada | result: success | cantidad: %d", len(batch))
+			log.Infof("action: batch_sent | result: success | client_id: %v | batch_number: %d | batch_size: %d | processed: %d/%d",
+				c.config.ID, batchNumber, len(batch), i+len(batch), totalBets)
 		} else {
-			log.Errorf("action: apuesta_enviada | result: fail | client_id: %v | batch_size: %d", c.config.ID, len(batch))
+			log.Errorf("action: batch_sent | result: fail | client_id: %v | batch_number: %d | batch_size: %d",
+				c.config.ID, batchNumber, len(batch))
 			return
 		}
+
+		i += len(batch)
+		batchNumber++
 	}
 
-	log.Infof("action: apuesta_enviada | result: success | client_id: %v", c.config.ID)
+	log.Infof("action: all_bets_sent | result: success | client_id: %v | total_processed: %d", c.config.ID, totalBets)
+}
+
+// createBatch crea un batch respetando el límite de cantidad
+func (c *Client) createBatch(start int, maxBatchSize int) []model.Bet {
+	totalBets := len(c.bets)
+
+	if start >= totalBets {
+		return []model.Bet{}
+	}
+
+	var batch []model.Bet
+
+	for i := start; i < totalBets && len(batch) < maxBatchSize; i++ {
+		bet := c.bets[i]
+		batch = append(batch, bet)
+	}
+
+	return batch
 }
 
 func (c *Client) Stop() {
