@@ -68,11 +68,9 @@ func InitConfig() (*viper.Viper, []model.Bet, error) {
 	log.Infof("[DEBUG] Variables de entorno - CLI_ID: %s", os.Getenv("CLI_ID"))
 	log.Infof("[DEBUG] Variables de entorno - CLI_SERVER_ADDRESS: %s", os.Getenv("CLI_SERVER_ADDRESS"))
 
-	// Construir la ruta del archivo basada en el ID del cliente
-	filePath := fmt.Sprintf("/data/agency-%d.csv", id)
-	file, err := os.Open(filePath)
+	file, err := os.Open("/agency.csv")
 	if err != nil {
-		return nil, nil, fmt.Errorf("error opening file %s: %w", filePath, err)
+		return nil, nil, fmt.Errorf("error opening file: %w", err)
 	}
 	defer file.Close()
 
