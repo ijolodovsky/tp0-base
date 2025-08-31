@@ -6,7 +6,7 @@ from common.utils import store_bets, load_bets, has_won
 from protocol.protocol import read_bet, read_message, send_ack, read_bet_batch, send_batch_ack, send_finish_ack, send_winners_list
 
 class Server:
-    def __init__(self, port, listen_backlog):
+    def __init__(self, port, listen_backlog, expected_agencies):
         # Initialize server socket
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
@@ -14,10 +14,14 @@ class Server:
         self.running = True
         self.client_connections = []
         self.finishedAgencies = 0
+        self.expected_agencies = expected_agencies  # Cantidad esperada de agencias
         self.sorteoRealizado = False
         self.pending_winners_queries = []  # Lista de (socket, agency_id) esperando ganadores
 
         signal.signal(signal.SIGTERM, self.handle_sigterm)
+        
+        # Log de configuración
+        logging.info(f"action: config | result: success | expected_agencies: {expected_agencies}")
 
     def run(self):
         while self.running:
@@ -70,8 +74,8 @@ class Server:
             elif msg_type == 'FIN_APUESTAS':
                 agency_id = content
                 self.finishedAgencies += 1
-                # mira si ya terminaron las 5 agencias
-                if self.finishedAgencies == 5 and not self.sorteoRealizado:
+                # mira si ya terminaron todas las agencias esperadas
+                if self.finishedAgencies == self.expected_agencies and not self.sorteoRealizado:
                     self.sorteoRealizado = True
                     
                     # Responder a todos los clientes que estaban esperando ganadores
