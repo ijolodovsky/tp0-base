@@ -71,7 +71,7 @@ func (c *Client) processBets() {
 		return
 	}
 
-	log.Infof("action: starting_batch_processing | client_id: %v | total_bets: %d | max_batch_size: %d",
+	log.Infof("action: starting_batch_processing | result: success | client_id: %v | total_bets: %d | max_batch_size: %d",
 		c.config.ID, totalBets, maxBatchSize)
 
 	i := 0
@@ -80,7 +80,7 @@ func (c *Client) processBets() {
 		// Crear batch respetando el límite de cantidad
 		batch := c.createBatch(i, maxBatchSize)
 
-		log.Infof("action: sending_batch | batch_number: %d | batch_size: %d | client_id: %v",
+		log.Infof("action: sending_batch | result: success | batch_number: %d | batch_size: %d | client_id: %v",
 			batchNumber, len(batch), c.config.ID)
 
 		if err := protocol.SendBetBatch(c.conn, batch); err != nil {
