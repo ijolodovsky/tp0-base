@@ -100,7 +100,7 @@ func (c *Client) processBets() {
 			for _, b := range batch {
 				log.Infof("action: apuesta_enviada | result: success | dni: %s | numero: %s", b.Document, b.Number)
 			}
-			log.Infof("action: apuesta_enviada | result: success | client_id: %v | batch_size: %d", c.config.ID, len(batch))
+			log.Infof("action: apuesta_enviada | result: success | cantidad: %d", len(batch))
 		} else {
 			log.Errorf("action: apuesta_enviada | result: fail | client_id: %v | batch_size: %d", c.config.ID, len(batch))
 			return
