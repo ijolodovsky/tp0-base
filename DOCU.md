@@ -1,3 +1,3 @@
 ## EJ1
-Genero un archivo en la raiz del proyecto llamado generar-compose.sh, que hace una validacion basica de los parametros recibidos (que sean 2), luego escribe la parte inicial del docker-compose y hace un loop para generar los clientes, agregando al final la definición de red.
-> Tuve que darle permiso con chmod al bash
+Implementé el script `generar-compose.sh` en la raíz del proyecto, que genera un archivo Docker Compose con la cantidad de clientes indicada por parámetro (ej: `./generar-compose.sh docker-compose-dev.yaml 5`).
+Valida los parámetros, escribe la cabecera, agrega los servicios `client1`, `client2`, etc., y la red al final.
