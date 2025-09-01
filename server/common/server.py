@@ -172,13 +172,15 @@ class Server:
         """
         Remueve una conexión específica de la lista de pendientes.
         """
-        self.pending_winners_queries = [
-            (sock, agency_id) for sock, agency_id in self.pending_winners_queries 
-            if sock != client_sock
-        ]
+        with self.lock:
+            self.pending_winners_queries = [
+                (sock, agency_id) for sock, agency_id in self.pending_winners_queries
+                if sock != client_sock
+            ]
 
     def is_connection_pending(self, client_sock):
         """
         Verifica si una conexión está en la lista de pendientes.
         """
-        return any(sock == client_sock for sock, _ in self.pending_winners_queries)
+        with self.lock:
+            return any(sock == client_sock for sock, _ in self.pending_winners_queries)
