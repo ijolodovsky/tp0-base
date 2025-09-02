@@ -16,7 +16,9 @@ Modifiqué la lógica de cliente y servidor para emular el flujo de apuestas de 
 
 - **Servidor:** El servidor recibe las apuestas de los clientes, las almacena usando la función provista `store_bet` y loguea cada registro con: `action: apuesta_almacenada | result: success | dni: ${DNI} | numero: ${NUMERO}`.
 
-- **Comunicación:** Implementé un módulo de comunicación dedicado, que serializa los datos de la apuesta, define un protocolo claro (header de longitud, campos separados por `|`), y maneja correctamente short reads/writes y errores de socket.
+- **Comunicación:** Implementé un módulo de comunicación dedicado con separación clara de responsabilidades:
+  - **Protocolo:** Header de 2 bytes big-endian con longitud del payload, seguido de campos separados por "|" (AgencyId|Nombre|Apellido|DNI|Fecha|Numero)
+  - **ACK:** Respuesta de 4 bytes big-endian con el número de la apuesta confirmada
 
 ## EJ4
 Tanto el servidor como el cliente fueron modificados para implementar un shutdown graceful al recibir la señal SIGTERM:
