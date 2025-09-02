@@ -188,18 +188,11 @@ func (c *Client) consultWinners() {
 			c.config.ID, winners)
 	}
 
-	// Delay para asegurar que los logs se escriban antes de terminar
-	time.Sleep(100 * time.Millisecond)
 }
 
 func (c *Client) Stop() {
 	// Pequeño delay para evitar terminación simultánea
 	clientID := c.config.ID
-	if len(clientID) > 0 {
-		lastChar := clientID[len(clientID)-1]
-		delay := time.Duration(int(lastChar-'0')) * 50 * time.Millisecond
-		time.Sleep(delay)
-	}
 
 	if c.conn != nil {
 		c.conn.Close()
