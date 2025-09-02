@@ -17,21 +17,34 @@ class Server:
         communication with a client. After client with communucation
         finishes, servers starts to accept new connections again
         """
-
-        # TODO: Modify this program to handle signal to graceful shutdown
-        # the server
         while self.running:
             try:
                 client_sock = self.__accept_new_connection()
+                if client_sock:
+                    self.__handle_client_connection(client_sock)
             except OSError:
+                # Socket was closed during shutdown
+                if self.running:
+                    logging.error("action: accept_connections | result: fail | error: Socket error")
                 break
-            self.__handle_client_connection(client_sock)
 
     def handle_sigterm(self, signum, frame):
-        logging.info(f'action: shutdown | result: in_progress')
-        self._server_socket.close()
+        """
+        Handle SIGTERM signal for graceful shutdown
+        """
+        logging.info('action: shutdown | result: in_progress')
+        
+        # Stop accepting new connections first
         self.running = False
-        logging.info(f'action: shutdown | result: success')
+        
+        # Close server socket to unblock accept() call
+        try:
+            self._server_socket.close()
+            logging.info('action: server_socket_closed | result: success')
+        except Exception as e:
+            logging.error(f'action: server_socket_closed | result: fail | error: {e}')
+        
+        logging.info('action: shutdown | result: success')
 
     def __handle_client_connection(self, client_sock):
         """
@@ -48,9 +61,13 @@ class Server:
             # TODO: Modify the send to avoid short-writes
             client_sock.send("{}\n".format(msg).encode('utf-8'))
         except OSError as e:
-            logging.error("action: receive_message | result: fail | error: {e}")
+            logging.error(f"action: receive_message | result: fail | error: {e}")
         finally:
-            client_sock.close()
+            try:
+                client_sock.close()
+                logging.info('action: client_socket_closed | result: success')
+            except Exception as e:
+                logging.error(f"action: client_socket_close | result: fail | error: {e}")
 
     def __accept_new_connection(self):
         """
@@ -59,9 +76,17 @@ class Server:
         Function blocks until a connection to a client is made.
         Then connection created is printed and returned
         """
+        
+        if not self.running:
+            return None
 
         # Connection arrived
         logging.info('action: accept_connections | result: in_progress')
-        c, addr = self._server_socket.accept()
-        logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
-        return c
+        try:
+            c, addr = self._server_socket.accept()
+            logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
+            return c
+        except OSError:
+            if self.running:
+                logging.error('action: accept_connections | result: fail | error: Socket closed')
+            return None
