@@ -3,7 +3,7 @@ import socket
 import logging
 
 from common.utils import store_bets, load_bets, has_won
-from protocol.protocol import read_message, send_ack, send_winners_list, parse_bet_batch_content
+from protocol.protocol import read_message, send_batch_ack, send_simple_ack, send_winners_list, parse_bet_batch_content
 
 class Server:
     def __init__(self, port, listen_backlog, expected_agencies):
@@ -56,19 +56,19 @@ class Server:
                 if msg_type == 'BATCH_APUESTAS':
                     bets = parse_bet_batch_content(content)
 
-                    all_success = True
+                    last_processed_bet_number = 0
                     try:
                         store_bets(bets)
-                    except Exception as e:
-                        all_success = False
-                    
-                    # Logging segun resultado del batch
-                    if all_success:
+                        # Si llegamos aquí, todas las apuestas fueron procesadas exitosamente
+                        for bet in bets:
+                            last_processed_bet_number = bet.number
+                        
                         logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
-                    else:
+                    except Exception as e:
+                        logging.error(f"action: apuesta_recibida | result: fail | error: {e}")
                         logging.info(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)}")
                     
-                    send_ack(client_sock, all_success)
+                    send_batch_ack(client_sock, last_processed_bet_number)
                 
                 elif msg_type == 'FIN_APUESTAS':
                     agency_id = content
@@ -80,7 +80,7 @@ class Server:
                         # Responder a todos los clientes que estaban esperando ganadores
                         self.respond_pending_winners()
                     
-                    send_ack(client_sock, True)
+                    send_simple_ack(client_sock, True)  # ACK simple para confirmación de finalización
                     
                 elif msg_type == 'CONSULTA_GANADORES':
                     agency_id = content
