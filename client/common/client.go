@@ -196,19 +196,12 @@ func (c *Client) consultWinners() {
 			c.config.ID, winners)
 	}
 
-	// Delay para asegurar que los logs se escriban antes de terminar
-	time.Sleep(100 * time.Millisecond)
 }
 
 // Cierre limpio del cliente cuando llega SIGTERM
 func (c *Client) Stop() {
 	// Pequeño delay escalonado para evitar que todos cierren a la vez
 	clientID := c.config.ID
-	if len(clientID) > 0 {
-		lastChar := clientID[len(clientID)-1]
-		delay := time.Duration(int(lastChar-'0')) * 50 * time.Millisecond
-		time.Sleep(delay)
-	}
 
 	// Cierro la conexión si está abierta
 	if c.conn != nil {
