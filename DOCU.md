@@ -1,3 +1,26 @@
-## EJ1
-Implementé el script `generar-compose.sh` en la raíz del proyecto, que genera un archivo Docker Compose con la cantidad de clientes indicada por parámetro (ej: `./generar-compose.sh docker-compose-dev.yaml 5`).
-Valida los parámetros, escribe la cabecera, agrega los servicios `client1`, `client2`, etc., y la red al final.
+## EJ1 - Generación Dinámica de Docker Compose
+
+### Implementación
+Implementé el script `generar-compose.sh` en la raíz del proyecto que genera dinámicamente un archivo Docker Compose con la cantidad de clientes especificada.
+
+### Funcionalidad
+- **Uso:** `./generar-compose.sh <archivo_salida> <cantidad_clientes>`
+- **Ejemplo:** `./generar-compose.sh docker-compose-dev.yaml 5`
+- **Validación:** Verifica que se proporcionen exactamente 2 parámetros
+- **Nomenclatura:** Genera clientes con nombres `client1`, `client2`, `client3`, etc.
+
+### Estructura del archivo generado
+1. **Cabecera:** Define el nombre del proyecto y el servicio servidor
+2. **Clientes:** Genera dinámicamente servicios cliente con:
+   - Variables de entorno específicas (`CLI_ID`)
+   - Dependencia del servidor
+   - Configuración de red compartida
+3. **Red:** Define la red `testing_net` con subred específica
+
+### Configuración
+- **Servidor:** Puerto 12345, nivel de logging DEBUG
+- **Clientes:** ID únicos, logging DEBUG, conectados a la misma red
+- **Red:** Subred 172.25.125.0/24 para comunicación interna
+
+### Ejecución
+El script valida parámetros, genera el archivo completo y confirma la creación exitosa.
