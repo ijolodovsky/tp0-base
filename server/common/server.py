@@ -3,7 +3,7 @@ import socket
 import logging
 
 from common.utils import store_bets, load_bets, has_won
-from protocol.protocol import read_message, send_batch_ack, send_finish_ack, send_winners_list, parse_bet_batch_content
+from protocol.protocol import read_message, send_ack, send_winners_list, parse_bet_batch_content
 
 class Server:
     def __init__(self, port, listen_backlog, expected_agencies):
@@ -68,7 +68,7 @@ class Server:
                     else:
                         logging.info(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)}")
                     
-                    send_batch_ack(client_sock, all_success)
+                    send_ack(client_sock, all_success)
                 
                 elif msg_type == 'FIN_APUESTAS':
                     agency_id = content
@@ -80,7 +80,7 @@ class Server:
                         # Responder a todos los clientes que estaban esperando ganadores
                         self.respond_pending_winners()
                     
-                    send_finish_ack(client_sock, True)
+                    send_ack(client_sock, True)
                     
                 elif msg_type == 'CONSULTA_GANADORES':
                     agency_id = content
