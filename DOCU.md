@@ -1,11 +1,13 @@
 ## EJ6
 Modifiqué los clientes para que envíen apuestas en batchs (chunks), permitiendo registrar varias apuestas en una sola consulta al servidor y optimizando la transmisión y el procesamiento.
 
-- **Cliente:** Cada cliente lee las apuestas desde un archivo CSV (`.data/agency-{N}.csv`), que se monta como volumen en el contenedor. El tamaño máximo de cada batch es configurable mediante `batch.maxAmount` en `config.yaml`, y el valor por defecto fue ajustado para que los paquetes no superen los 8kB. El cliente envía los batchs al servidor y espera la confirmación. Si el batch es aceptado, loguea: `action: apuesta_enviada | result: success | cantidad: ${CANTIDAD_DE_APUESTAS}`; si hay error, loguea el fallo y la cantidad de apuestas.
+- **Cliente:** Cada cliente lee las apuestas desde un archivo CSV (`.data/agency-{N}.csv`), que se monta como volumen en el contenedor. El tamaño máximo de cada batch es configurable mediante `batch.maxAmount` en `config.yaml`, y el valor por defecto fue ajustado a 80 apuestas para que los paquetes no superen los 8kB. El cliente mantiene una sola conexión TCP y envía múltiples batches secuencialmente, esperando confirmación de cada batch antes de enviar el siguiente.
 
-- **Servidor:** El servidor recibe los batchs, procesa todas las apuestas y responde con éxito solo si todas fueron almacenadas correctamente. Loguea: `action: apuesta_recibida | result: success | cantidad: ${CANTIDAD_DE_APUESTAS}` o, en caso de error, `action: apuesta_recibida | result: fail | cantidad: ${CANTIDAD_DE_APUESTAS}`.
+- **Protocolo de batches:** Extendí el protocolo para soportar múltiples apuestas en un solo mensaje. Cada apuesta se serializa como `agencia|nombre|apellido|dni|nacimiento|numero`, y las apuestas dentro del batch se separan con `\n`. El servidor responde con el número de la última apuesta procesada exitosamente.
 
-- **Archivos y persistencia:** Los archivos de apuestas se inyectan y persisten por fuera de la imagen Docker usando volúmenes.
+- **Servidor:** El servidor recibe los batchs completos, procesa todas las apuestas usando `store_bets()` y responde con éxito solo si todas fueron almacenadas correctamente. Loguea: `action: apuesta_recibida | result: success | cantidad: ${CANTIDAD_DE_APUESTAS}` o, en caso de error, `action: apuesta_recibida | result: fail | cantidad: ${CANTIDAD_DE_APUESTAS}`.
+
+- **Persistencia:** Los archivos CSV se inyectan como volúmenes Docker, manteniendo la convención `agency-{N}.csv` para cada cliente. El servidor almacena todas las apuestas en un archivo CSV usando la función provista por la cátedra.
 
 ## EJ5
 Modifiqué la lógica de cliente y servidor para emular el flujo de apuestas de una agencia de quiniela:
