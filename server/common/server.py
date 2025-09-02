@@ -33,50 +33,34 @@ class Server:
 
     def __handle_client_connection(self, client_sock):
         """
-        Lee múltiples batches de apuestas
+        Read message from a specific client socket and closes the socket
+
+        If a problem arises in the communication with the client, the
+        client socket will also be closed
         """
-        client_connected = True
-
+        
         try:
-            while client_connected:
-                bets = []
-                batch_fail = False
-                try:
-                    bets = read_bet_batch(client_sock)
-                except ConnectionError:
-                    logging.info("Cliente desconectado")
-                    client_connected = False
-                except Exception as e:
-                    batch_fail = True
-                    # Si hubo error, igual loguear intento de batch (fail, cantidad 0)
-                    logging.info(f"action: apuesta_recibida | result: fail | cantidad: 0")
-                    send_batch_ack(client_sock, False)
-                    client_connected = False
-
-                # Si no hay bets o la conexión se cerró, terminamos el loop
-                if not bets and not batch_fail:
-                    client_connected = False
-
-                # Procesar batch si existe
-                if bets:
-                    all_success = True
-                    try:
-                        store_bets(bets)
-                        for bet in bets:
-                            logging.info(
-                                f"action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}"
-                            )
-                    except Exception as e:
-                        all_success = False
-                        logging.error(f"action: store_bets | result: fail | error: {e}")
-
-                    if all_success:
-                        logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
-                    else:
-                        logging.info(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)}")
-
-                    send_batch_ack(client_sock, all_success)
-
+            bets = read_bet_batch(client_sock)
+            
+            # Procesar todas las apuestas del batch
+            all_success = True
+            try:
+                store_bets(bets)
+                for bet in bets:
+                    logging.info(f"action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}")
+            except Exception as e:
+                all_success = False
+                logging.error(f"action: store_bets | result: fail | error: {e}")
+            
+            # Logging segun resultado del batch
+            if all_success:
+                logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
+            else:
+                logging.info(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)}")
+            
+            send_batch_ack(client_sock, all_success)
+            
+        except Exception as e:
+            logging.error(f"action: receive_message | result: fail | error: {e}")
         finally:
             client_sock.close()
-            logging.info("Conexión con cliente cerrada")
