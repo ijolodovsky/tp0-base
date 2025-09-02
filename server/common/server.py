@@ -16,7 +16,6 @@ class Server:
         self.finishedAgencies = 0
         self.expected_agencies = expected_agencies  # Cantidad esperada de agencias
         self.sorteoRealizado = False
-        self.pending_winners_queries = []  # Lista de (socket, agency_id) esperando ganadores
 
         signal.signal(signal.SIGTERM, self.handle_sigterm)
         
@@ -26,19 +25,32 @@ class Server:
     def run(self):
         while self.running:
             try:
-                client_sock, addr = self._server_socket.accept()
-                self.__handle_client_connection(client_sock)
+                client_sock, addr = self.__accept_new_connection()
+                if client_sock:
+                    self.__handle_client_connection(client_sock)
             except OSError:
+                if self.running:
+                    logging.error("action: accept_connections | result: fail | error: Socket error")
                 break
 
     def handle_sigterm(self, signum, frame):
+        """
+        Handle SIGTERM signal for graceful shutdown
+        """
+        logging.info('action: shutdown | result: in_progress')
+        
         self.running = False
         
         # Cerrar todas las conexiones pendientes de consultas de ganadores
         self.close_pending_connections()
         
-        # Cerrar el socket del servidor
-        self._server_socket.close()
+        try:
+            self._server_socket.close()
+            logging.info('action: server_socket_closed | result: success')
+        except Exception as e:
+            logging.error(f'action: server_socket_closed | result: fail | error: {e}')
+        
+        logging.info('action: shutdown | result: success')
 
     def __handle_client_connection(self, client_sock):
         """
@@ -76,6 +88,7 @@ class Server:
                     # mira si ya terminaron todas las agencias esperadas
                     if self.finishedAgencies == self.expected_agencies and not self.sorteoRealizado:
                         self.sorteoRealizado = True
+                        logging.info('action: sorteo | result: success')
                         
                         # Responder a todos los clientes que estaban esperando ganadores
                         self.respond_pending_winners()
@@ -87,7 +100,7 @@ class Server:
                     
                     if not self.sorteoRealizado:
                         # Agregar cliente a la lista de espera (no cierra la conexion)
-                        self.pending_winners_queries.append((client_sock, int(agency_id)))
+                        self.client_connections.append((client_sock, int(agency_id)))
                         return
                     else:
                         # Busco los ganadores de esta agencia
@@ -101,8 +114,9 @@ class Server:
             if not self.is_connection_pending(client_sock):
                 try:
                     client_sock.close()
-                except:
-                    pass
+                    logging.info('action: client_socket_closed | result: success')
+                except Exception as e:
+                    logging.error(f"action: client_socket_close | result: fail | error: {e}")
 
     def get_winners_agency(self, agency_id: int) -> list[str]:
         """
@@ -124,7 +138,7 @@ class Server:
         """
         Responde a todos los clientes que estaban esperando los resultados del sorteo
         """
-        for client_sock, agency_id in self.pending_winners_queries:
+        for client_sock, agency_id in self.client_connections:
             try:
                 winners = self.get_winners_agency(agency_id)
                 send_winners_list(client_sock, winners, sorteoRealizado=True)
@@ -137,28 +151,31 @@ class Server:
                 except:
                     pass
         
-        self.pending_winners_queries.clear()
+        self.client_connections.clear()
 
     def close_pending_connections(self):
         """
         Cierra todas las conexiones pendientes de consultas de ganadores.
         Se llama durante el shutdown para evitar conexiones abiertas.
         """
-        logging.info(f"action: close_pending_connections | result: in_progress | count: {len(self.pending_winners_queries)}")
+        logging.info(f"action: close_pending_connections | result: in_progress | count: {len(self.client_connections)}")
         
-        for client_sock, agency_id in self.pending_winners_queries:
+        for client_sock, agency_id in self.client_connections:
             try:
                 client_sock.close()
+                logging.info(f'action: pending_connection_closed | result: success | agency: {agency_id}')
             except Exception as e:
                 logging.error(f"action: close_pending_connection | result: fail | agency: {agency_id} | error: {e}")
-        self.pending_winners_queries.clear()
+        
+        self.client_connections.clear()
+        logging.info('action: close_pending_connections | result: success')
 
     def remove_from_pending(self, client_sock):
         """
         Remueve una conexión específica de la lista de pendientes.
         """
-        self.pending_winners_queries = [
-            (sock, agency_id) for sock, agency_id in self.pending_winners_queries 
+        self.client_connections = [
+            (sock, agency_id) for sock, agency_id in self.client_connections 
             if sock != client_sock
         ]
 
@@ -166,4 +183,26 @@ class Server:
         """
         Verifica si una conexión está en la lista de pendientes.
         """
-        return any(sock == client_sock for sock, _ in self.pending_winners_queries)
+        return any(sock == client_sock for sock, _ in self.client_connections)
+
+    def __accept_new_connection(self):
+        """
+        Accept new connections
+
+        Function blocks until a connection to a client is made.
+        Then connection created is printed and returned
+        """
+        
+        if not self.running:
+            return None, None
+
+        # Connection arrived
+        logging.info('action: accept_connections | result: in_progress')
+        try:
+            c, addr = self._server_socket.accept()
+            logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
+            return c, addr
+        except OSError:
+            if self.running:
+                logging.error('action: accept_connections | result: fail | error: Socket closed')
+            return None, None
