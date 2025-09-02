@@ -70,7 +70,7 @@ func (c *Client) processBets() {
 		return
 	}
 
-	log.Infof("action: starting_batch_processing | client_id: %v | total_bets: %d | max_batch_size: %d",
+	log.Infof("action: starting_batch_processing | result: in_progress | client_id: %v | total_bets: %d | max_batch_size: %d",
 		c.config.ID, totalBets, maxBatchSize)
 
 	i := 0
