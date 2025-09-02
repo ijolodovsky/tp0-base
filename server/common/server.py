@@ -35,25 +35,37 @@ class Server:
     def run(self):
         while self.running:
             try:
-                # Aceptar la conexión en el thread principal
-                client_sock, addr = self._server_socket.accept()
-                
-                # Enviar el cliente al pool de threads
-                self.thread_pool.submit(self.__handle_client_connection, client_sock)
+                client_sock, addr = self.__accept_new_connection()
+                if client_sock:
+                    # Enviar el cliente al pool de threads
+                    self.thread_pool.submit(self.__handle_client_connection, client_sock)
             except OSError:
+                if self.running:
+                    logging.error("action: accept_connections | result: fail | error: Socket error")
                 break
 
     def handle_sigterm(self, signum, frame):
+        """
+        Handle SIGTERM signal for graceful shutdown
+        """
         self.running = False
         
         # Cerrar todas las conexiones pendientes de consultas de ganadores
         self.close_pending_connections()
         
-        # Cerrar el socket del servidor
-        self._server_socket.close()
+        try:
+            self._server_socket.close()
+            logging.info('action: server_socket_closed | result: success')
+        except Exception as e:
+            logging.error(f'action: server_socket_closed | result: fail | error: {e}')
         
         # Cerrar el pool de threads de forma ordenada
-        self.thread_pool.shutdown(wait=True)
+        try:
+            self.thread_pool.shutdown(wait=True)
+        except Exception as e:
+            logging.error(f'action: thread_pool_shutdown | result: fail | error: {e}')
+        
+        logging.info('action: shutdown | result: success')
 
     def __handle_client_connection(self, client_sock):
         """
@@ -118,8 +130,9 @@ class Server:
             if not self.is_connection_pending(client_sock):
                 try:
                     client_sock.close()
-                except:
-                    pass
+                    logging.info('action: client_socket_closed | result: success')
+                except Exception as e:
+                    logging.error(f"action: client_socket_close | result: fail | error: {e}")
 
     def get_winners_agency(self, agency_id: int) -> list[str]:
         """
@@ -177,6 +190,7 @@ class Server:
         for client_sock, agency_id in pendientes:
             try:
                 client_sock.close()
+                logging.info(f'action: pending_connection_closed | result: success | agency: {agency_id}')
             except Exception as e:
                 logging.error(f"action: close_pending_connection | result: fail | agency: {agency_id} | error: {e}")
 
@@ -196,3 +210,25 @@ class Server:
         """
         with self.lock:
             return any(sock == client_sock for sock, _ in self.pending_winners_queries)
+
+    def __accept_new_connection(self):
+        """
+        Accept new connections
+
+        Function blocks until a connection to a client is made.
+        Then connection created is printed and returned
+        """
+        
+        if not self.running:
+            return None, None
+
+        # Connection llega
+        logging.info('action: accept_connections | result: in_progress')
+        try:
+            c, addr = self._server_socket.accept()
+            logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
+            return c, addr
+        except OSError:
+            if self.running:
+                logging.error('action: accept_connections | result: fail | error: Socket closed')
+            return None, None
