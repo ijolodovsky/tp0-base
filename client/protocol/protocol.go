@@ -1,7 +1,6 @@
 package protocol
 
 import (
-	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
@@ -12,21 +11,20 @@ import (
 // SendBet envía la apuesta usando el protocolo de longitud-prefijada
 func SendBet(conn net.Conn, bet model.Bet) error {
 	// Armamos el payload como string separado por "|" en el orden compatible con Python
-       payload := fmt.Sprintf("%d|%s|%s|%s|%s|%d",
-	       bet.AgencyId,
-	       bet.Name,
-	       bet.LastName,
-	       bet.Document,
-	       bet.BirthDate,
-	       bet.Number,
-       )
+	payload := fmt.Sprintf("%d|%s|%s|%s|%s|%d",
+		bet.AgencyId,
+		bet.Name,
+		bet.LastName,
+		bet.Document,
+		bet.BirthDate,
+		bet.Number,
+	)
 
 	data := []byte(payload)
 	length := uint16(len(data))
 
-	// Preparamos el header de 2 bytes big-endian
-	header := make([]byte, 2)
-	binary.BigEndian.PutUint16(header, length)
+	// Serializamos el header (2 bytes big-endian) manualmente
+	header := []byte{byte(length >> 8), byte(length & 0xFF)}
 
 	// Enviamos primero el header, luego el payload
 	if err := writeAll(conn, header); err != nil {
@@ -46,7 +44,8 @@ func ReceiveAck(conn net.Conn) (int, error) {
 		return 0, fmt.Errorf("error reading ACK: %w", err)
 	}
 
-	ackNumber := int(binary.BigEndian.Uint32(buf))
+	// Reconstruimos el uint32 big-endian manualmente
+	ackNumber := int(buf[0])<<24 | int(buf[1])<<16 | int(buf[2])<<8 | int(buf[3])
 	return ackNumber, nil
 }
 

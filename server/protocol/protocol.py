@@ -1,4 +1,3 @@
-import struct
 from common.utils import Bet
 
 def read_bet(sock) -> Bet:
@@ -8,8 +7,7 @@ def read_bet(sock) -> Bet:
     header = _read_n_bytes(sock, 2)
     if not header:
         raise ConnectionError("No header received")
-
-    message_length = struct.unpack('>H', header)[0]
+    message_length = (header[0] << 8) | header[1]
     data = _read_n_bytes(sock, message_length)
     text = data.decode('utf-8')
 
@@ -42,7 +40,13 @@ def send_ack(sock, bet: Bet):
     """
     Envía un ACK de 4 bytes big-endian con el número de la apuesta.
     """
-    ack = struct.pack('>I', bet.number)
+    n = bet.number
+    ack = bytes([
+        (n >> 24) & 0xFF,
+        (n >> 16) & 0xFF,
+        (n >> 8) & 0xFF,
+        n & 0xFF
+    ])
     _send_all(sock, ack)
 
 def _send_all(sock, data: bytes):
