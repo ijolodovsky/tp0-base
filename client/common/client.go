@@ -43,30 +43,34 @@ func (c *Client) createClientSocket() error {
 	return nil
 }
 
-// StartClient inicia el cliente y maneja la señal de apagado
+// Función principal del cliente - maneja todo el flujo
 func (c *Client) StartClientLoop(sigChan chan os.Signal) {
+	// Primero verifico si llegó una señal de cierre
 	select {
 	case <-sigChan:
 		log.Infof("action: shutdown | result: success")
 		return
 	default:
-		// Establecer conexión una sola vez para todo el proceso
+		// Creo una unica conexión para todo el proceso
 		if err := c.createClientSocket(); err != nil {
 			return
 		}
+		// Aseguro que se cierre la conexión al final
 		defer c.conn.Close()
 
-		c.processBets()
-		c.finishNotification()
-		c.consultWinners()
+		// Flujo completo del cliente:
+		c.processBets()      // 1. Envío todas las apuestas en batches
+		c.finishNotification() // 2. Aviso que terminé
+		c.consultWinners()     // 3. Consulto ganadores
 	}
 }
 
-// processBets procesa todas las apuestas enviándolas en batches usando una sola conexión
+// Envío todas las apuestas al servidor en grupos (batches)
 func (c *Client) processBets() {
 	maxBatchSize := c.config.BatchMaxAmount
 	totalBets := len(c.bets)
 
+	// Si no tengo apuestas, termino
 	if totalBets == 0 {
 		log.Infof("action: apuestas_enviadas | result: success | client_id: %v", c.config.ID)
 		return
@@ -84,19 +88,21 @@ func (c *Client) processBets() {
 		log.Infof("action: sending_batch | result: success | batch_number: %d | batch_size: %d | client_id: %v",
 			batchNumber, len(batch), c.config.ID)
 
+		// Envío el batch al servidor
 		if err := protocol.SendBetBatch(c.conn, batch); err != nil {
 			log.Errorf("action: send_batch | result: fail | client_id: %v | batch_size: %d | error: %v",
 				c.config.ID, len(batch), err)
 			return
 		}
 
+		// Espero confirmación del servidor
 		lastProcessedNumber, err := protocol.ReceiveBatchAck(c.conn)
 		if err != nil {
 			log.Errorf("action: receive_batch_ack | result: fail | client_id: %v | error: %v", c.config.ID, err)
 			return
 		}
 
-		// Obtener el número de la última apuesta que se envió en este batch
+		// Verifico que el servidor procesó bien todas las apuestas
 		expectedLastNumberStr := batch[len(batch)-1].Number
 		expectedLastNumber, err := strconv.Atoi(expectedLastNumberStr)
 		if err != nil {
@@ -106,14 +112,13 @@ func (c *Client) processBets() {
 		}
 		
 		if lastProcessedNumber > 0 {
-			// Verificar que el servidor procesó hasta donde esperábamos
+			// El servidor me dice hasta qué apuesta procesó
 			if lastProcessedNumber == expectedLastNumber {
 				log.Infof("action: batch_sent | result: success | client_id: %v | batch_number: %d | batch_size: %d | last_processed_bet: %d | processed: %d/%d",
 					c.config.ID, batchNumber, len(batch), lastProcessedNumber, i+len(batch), totalBets)
 			} else {
 				log.Errorf("action: batch_sent | result: partial_success | client_id: %v | batch_number: %d | batch_size: %d | expected_last: %d | actual_last: %d | processed: %d/%d",
 					c.config.ID, batchNumber, len(batch), expectedLastNumber, lastProcessedNumber, i+len(batch), totalBets)
-				// Podríamos implementar lógica de reintento aquí en el futuro
 				return
 			}
 		} else {
@@ -122,6 +127,7 @@ func (c *Client) processBets() {
 			return
 		}
 
+		// Avanzo al siguiente grupo de apuestas
 		i += len(batch)
 		batchNumber++
 	}
@@ -133,6 +139,7 @@ func (c *Client) processBets() {
 func (c *Client) createBatch(start int, maxBatchSize int) []model.Bet {
 	totalBets := len(c.bets)
 
+	// Si ya procesé todas, devuelvo lista vacía
 	if start >= totalBets {
 		return []model.Bet{}
 	}
@@ -154,6 +161,7 @@ func (c *Client) finishNotification() {
 		return
 	}
 
+	// Espero confirmación del servidor
 	ok, err := protocol.ReceiveFinishAck(c.conn)
 	if err != nil {
 		log.Errorf("action: receive_finish_ack | result: fail | client_id: %v | error: %v", c.config.ID, err)
@@ -192,8 +200,9 @@ func (c *Client) consultWinners() {
 	time.Sleep(100 * time.Millisecond)
 }
 
+// Cierre limpio del cliente cuando llega SIGTERM
 func (c *Client) Stop() {
-	// Pequeño delay para evitar terminación simultánea
+	// Pequeño delay escalonado para evitar que todos cierren a la vez
 	clientID := c.config.ID
 	if len(clientID) > 0 {
 		lastChar := clientID[len(clientID)-1]
@@ -201,6 +210,7 @@ func (c *Client) Stop() {
 		time.Sleep(delay)
 	}
 
+	// Cierro la conexión si está abierta
 	if c.conn != nil {
 		c.conn.Close()
 		log.Infof("action: close_connection | result: success | client_id: %v", c.config.ID)

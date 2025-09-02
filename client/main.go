@@ -17,8 +17,10 @@ import (
 
 var log = logging.MustGetLogger("log")
 
-// LoadBetsFromCSV carga las apuestas desde un archivo CSV
+// Cargo todas las apuestas desde el archivo CSV de mi agencia
 func LoadBetsFromCSV(agencyId string) ([]model.Bet, error) {
+	// Cada agencia tiene su archivo: /agency-1.csv, /agency-2.csv, etc.
+	// Estos archivos se montan como volumen desde .data/
 	filename := fmt.Sprintf("/agency-%s.csv", agencyId)
 
 	file, err := os.Open(filename)
@@ -33,12 +35,15 @@ func LoadBetsFromCSV(agencyId string) ([]model.Bet, error) {
 		return nil, fmt.Errorf("error reading CSV file: %w", err)
 	}
 
+	// Convierto cada fila en una apuesta
 	var bets []model.Bet
 	for i, record := range records {
+		// Cada fila debe tener 5 campos: nombre,apellido,dni,fecha,numero
 		if len(record) != 5 {
 			return nil, fmt.Errorf("invalid record in line %d: expected 5 fields, got %d", i+1, len(record))
 		}
 
+		// Creo la apuesta agregando el ID de mi agencia
 		bet := model.Bet{
 			AgencyId:  agencyId,
 			Name:      record[0],
@@ -145,6 +150,7 @@ func run() error {
 
 	log.Infof("Cargadas %d apuestas desde CSV para agencia %s", len(bets), v.GetString("id"))
 
+	// Configuro el manejo de señales para shutdown graceful
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, syscall.SIGTERM)
 
@@ -159,6 +165,7 @@ func run() error {
 
 	client := common.NewClient(clientConfig, bets)
 
+	// 7. Configuro goroutine para manejar SIGTERM
 	go func() {
 		<-sigchan
 		client.Stop()

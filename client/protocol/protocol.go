@@ -14,7 +14,9 @@ func SendBetBatch(conn net.Conn, bets []model.Bet) error {
 		return fmt.Errorf("no bets to send")
 	}
 
-	// Construir el payload manualmente, sin strings.Join
+	// Armo el payload juntando todas las apuestas
+	// Formato: cada apuesta es "agencia|nombre|apellido|dni|fecha|numero"
+	// Las apuestas se separan con \n
 	payload := ""
 	for i, bet := range bets {
 		betStr := fmt.Sprintf("%s|%s|%s|%s|%s|%s",
@@ -31,13 +33,15 @@ func SendBetBatch(conn net.Conn, bets []model.Bet) error {
 		}
 	}
 
+	// Convierto a bytes y calculo la longitud
 	data := []byte(payload)
 	length := uint16(len(data))
 
-	// Header de 2 bytes big-endian manual
+	// Protocolo: 2 bytes de header (longitud) + payload
+	// Big-endian = byte más significativo primero
 	header := []byte{byte(length >> 8), byte(length & 0xFF)}
 
-	// Primero el header, y despues el payload
+	// Envío primero el header, después el contenido
 	if err := writeAll(conn, header); err != nil {
 		return fmt.Errorf("error sending header: %w", err)
 	}
@@ -66,6 +70,7 @@ func SendFinishConfirmation(conn net.Conn, agencyId string) error {
 	return nil
 }
 
+// Pido al servidor la lista de ganadores de mi agencia
 func SendWinnersQuery(conn net.Conn, agencyId string) error {
 	payload := "CONSULTA_GANADORES|" + agencyId
 	data := []byte(payload)
@@ -94,28 +99,30 @@ func ReceiveAck(conn net.Conn) (int, error) {
 	return ackNumber, nil
 }
 
-// ReceiveBatchAck lee 4 bytes: número de la última apuesta procesada exitosamente
+// Recibo confirmación del servidor después de enviar un batch
+// Me dice hasta qué número de apuesta procesó bien
 func ReceiveBatchAck(conn net.Conn) (int, error) {
 	buf := make([]byte, 4)
 	if err := readAll(conn, buf); err != nil {
 		return 0, fmt.Errorf("error reading batch ACK: %w", err)
 	}
 	
-	// Reconstruimos el uint32 big-endian manualmente
+	// Decodifico 4 bytes big-endian a int
 	lastProcessedNumber := int(buf[0])<<24 | int(buf[1])<<16 | int(buf[2])<<8 | int(buf[3])
 	return lastProcessedNumber, nil
 }
 
-// ReceiveFinishAck lee 1 byte: 1=éxito de la confirmación de finalización, 0=fallo
+// Recibo confirmación de que el servidor recibió mi notificación de fin
 func ReceiveFinishAck(conn net.Conn) (bool, error) {
 	buf := make([]byte, 1)
 	if err := readAll(conn, buf); err != nil {
 		return false, fmt.Errorf("error reading finish ACK: %w", err)
 	}
+	// 1 byte: 1 = exito, 0 = error
 	return buf[0] == 1, nil
 }
 
-// ReceiveWinnersList lee la lista de DNI ganadores del servidor
+// Recibo la lista de ganadores de mi agencia
 func ReceiveWinnersList(conn net.Conn) ([]string, error) {
 	// Leer header de 2 bytes
 	header := make([]byte, 2)
@@ -140,10 +147,12 @@ func ReceiveWinnersList(conn net.Conn) ([]string, error) {
 	}
 
 	if response == "" {
+		// No hay ganadores en mi agencia
 		return []string{}, nil
 	}
 
-	// Parsear lista de DNIs separados por "|"
+	// Parseo la lista de DNIs separados por |
+	// Ejemplo: "12345678|87654321|11111111"
 	winners := []string{}
 	start := 0
 	for i := 0; i < len(response); i++ {
@@ -160,6 +169,7 @@ func ReceiveWinnersList(conn net.Conn) ([]string, error) {
 
 func writeAll(conn net.Conn, data []byte) error {
 	total := 0
+	// Sigo enviando hasta mandar todos los bytes
 	for total < len(data) {
 		n, err := conn.Write(data[total:])
 		if err != nil {
@@ -172,6 +182,7 @@ func writeAll(conn net.Conn, data []byte) error {
 
 func readAll(conn net.Conn, buf []byte) error {
 	total := 0
+	// Sigo leyendo hasta llenar todo el buffer
 	for total < len(buf) {
 		n, err := conn.Read(buf[total:])
 		if err != nil {

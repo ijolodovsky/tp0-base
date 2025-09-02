@@ -47,8 +47,8 @@ def main():
 
     # Initialize server and start server loop
     server = Server(port, listen_backlog, expected_agencies)
-    signal.signal(signal.SIGTERM, server.handle_sigterm)
-    server.run()
+    signal.signal(signal.SIGTERM, server.handle_sigterm)  # Para shutdown graceful
+    server.run()  # Loop principal
 
 def initialize_log(logging_level):
     """
