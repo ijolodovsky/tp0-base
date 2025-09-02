@@ -40,17 +40,21 @@ class Server:
         try:
             while client_connected:
                 bets = []
+                batch_fail = False
                 try:
                     bets = read_bet_batch(client_sock)
                 except ConnectionError:
                     logging.info("Cliente desconectado")
                     client_connected = False
                 except Exception as e:
-                    logging.error(f"action: receive_message | result: fail | error: {e}")
+                    batch_fail = True
+                    # Si hubo error, igual loguear intento de batch (fail, cantidad 0)
+                    logging.info(f"action: apuesta_recibida | result: fail | cantidad: 0")
+                    send_batch_ack(client_sock, False)
                     client_connected = False
 
                 # Si no hay bets o la conexión se cerró, terminamos el loop
-                if not bets:
+                if not bets and not batch_fail:
                     client_connected = False
 
                 # Procesar batch si existe
