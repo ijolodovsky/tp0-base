@@ -5,7 +5,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 
 from common.utils import store_bets, load_bets, has_won
-from protocol.protocol import read_message, send_winners_list, parse_bet_batch_content, send_ack
+from protocol.protocol import read_message, send_winners_list, parse_bet_batch_content, send_batch_ack, send_simple_ack
 
 class Server:
     def __init__(self, port, listen_backlog, expected_agencies):
@@ -71,21 +71,20 @@ class Server:
                 if msg_type == 'BATCH_APUESTAS':
                     bets = parse_bet_batch_content(content)
 
-                    all_success = True
+                    last_processed_bet_number = 0
                     try:
                         # Proteger escritura al archivo CSV con lock
                         with self.file_lock:
                             store_bets(bets)
-                    except Exception as e:
-                        all_success = False
-                    
-                    # Logging segun resultado del batch
-                    if all_success:
+                        for bet in bets:
+                            last_processed_bet_number = bet.number
+                        
                         logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
-                    else:
+                    except Exception as e:
+                        logging.error(f"action: store_bets | result: fail | error: {e}")
                         logging.info(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)}")
                     
-                    send_ack(client_sock, all_success)
+                    send_batch_ack(client_sock, last_processed_bet_number)
                 
                 elif msg_type == 'FIN_APUESTAS':
                     agency_id = content
@@ -97,7 +96,7 @@ class Server:
                             logging.info("action: sorteo | result: success")
                             # Responder a todos los clientes que estaban esperando ganadores
                             self.respond_pending_winners()      
-                    send_ack(client_sock, True)
+                    send_simple_ack(client_sock, True)
                     
                 elif msg_type == 'CONSULTA_GANADORES':
                     agency_id = content
