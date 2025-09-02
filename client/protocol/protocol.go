@@ -60,13 +60,16 @@ func ReceiveAck(conn net.Conn) (int, error) {
 	return ackNumber, nil
 }
 
-// ReceiveBatchAck lee 1 byte: 1=éxito del batch, 0=fallo
-func ReceiveBatchAck(conn net.Conn) (bool, error) {
-	buf := make([]byte, 1)
+// ReceiveBatchAck lee 4 bytes: número de la última apuesta procesada exitosamente
+func ReceiveBatchAck(conn net.Conn) (int, error) {
+	buf := make([]byte, 4)
 	if err := readAll(conn, buf); err != nil {
-		return false, fmt.Errorf("error reading batch ACK: %w", err)
+		return 0, fmt.Errorf("error reading batch ACK: %w", err)
 	}
-	return buf[0] == 1, nil
+	
+	// Reconstruimos el uint32 big-endian manualmente
+	lastProcessedNumber := int(buf[0])<<24 | int(buf[1])<<16 | int(buf[2])<<8 | int(buf[3])
+	return lastProcessedNumber, nil
 }
 
 func writeAll(conn net.Conn, data []byte) error {

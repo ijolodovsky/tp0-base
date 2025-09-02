@@ -3,6 +3,7 @@ package common
 import (
 	"net"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/model"
@@ -83,17 +84,34 @@ func (c *Client) processBets() {
 			return
 		}
 
-		ok, err := protocol.ReceiveBatchAck(c.conn)
+		lastProcessedNumber, err := protocol.ReceiveBatchAck(c.conn)
 		if err != nil {
 			log.Errorf("action: receive_batch_ack | result: fail | client_id: %v | error: %v", c.config.ID, err)
 			return
 		}
 
-		if ok {
-			log.Infof("action: batch_sent | result: success | client_id: %v | batch_number: %d | batch_size: %d | processed: %d/%d",
-				c.config.ID, batchNumber, len(batch), i+len(batch), totalBets)
+		// Obtener el número de la última apuesta que se envió en este batch
+		expectedLastNumberStr := batch[len(batch)-1].Number
+		expectedLastNumber, err := strconv.Atoi(expectedLastNumberStr)
+		if err != nil {
+			log.Errorf("action: parse_bet_number | result: fail | client_id: %v | bet_number: %s | error: %v", 
+				c.config.ID, expectedLastNumberStr, err)
+			return
+		}
+		
+		if lastProcessedNumber > 0 {
+			// Verificar que el servidor procesó hasta donde esperábamos
+			if lastProcessedNumber == expectedLastNumber {
+				log.Infof("action: batch_sent | result: success | client_id: %v | batch_number: %d | batch_size: %d | last_processed_bet: %d | processed: %d/%d",
+					c.config.ID, batchNumber, len(batch), lastProcessedNumber, i+len(batch), totalBets)
+			} else {
+				log.Errorf("action: batch_sent | result: partial_success | client_id: %v | batch_number: %d | batch_size: %d | expected_last: %d | actual_last: %d | processed: %d/%d",
+					c.config.ID, batchNumber, len(batch), expectedLastNumber, lastProcessedNumber, i+len(batch), totalBets)
+				// Podríamos implementar lógica de reintento aquí en el futuro
+				return
+			}
 		} else {
-			log.Errorf("action: batch_sent | result: fail | client_id: %v | batch_number: %d | batch_size: %d",
+			log.Errorf("action: batch_sent | result: fail | client_id: %v | batch_number: %d | batch_size: %d | no_bets_processed",
 				c.config.ID, batchNumber, len(batch))
 			return
 		}

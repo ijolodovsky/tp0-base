@@ -50,7 +50,7 @@ class Server:
                     batch_fail = True
                     # Si hubo error, igual loguear intento de batch (fail, cantidad 0)
                     logging.info(f"action: apuesta_recibida | result: fail | cantidad: 0")
-                    send_batch_ack(client_sock, False)
+                    send_batch_ack(client_sock, 0)  # 0 indica que ninguna apuesta fue procesada
                     client_connected = False
 
                 # Si no hay bets o la conexión se cerró, terminamos el loop
@@ -59,23 +59,21 @@ class Server:
 
                 # Procesar batch si existe
                 if bets:
-                    all_success = True
+                    last_processed_bet_number = 0
                     try:
                         store_bets(bets)
                         for bet in bets:
                             logging.info(
                                 f"action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}"
                             )
-                    except Exception as e:
-                        all_success = False
-                        logging.error(f"action: store_bets | result: fail | error: {e}")
-
-                    if all_success:
+                            last_processed_bet_number = bet.number
+                        
                         logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
-                    else:
+                    except Exception as e:
+                        logging.error(f"action: store_bets | result: fail | error: {e}")
                         logging.info(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)}")
 
-                    send_batch_ack(client_sock, all_success)
+                    send_batch_ack(client_sock, last_processed_bet_number)
 
         finally:
             client_sock.close()

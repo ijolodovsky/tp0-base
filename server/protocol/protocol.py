@@ -79,13 +79,19 @@ def send_ack(sock, bet: Bet):
     ])
     _send_all(sock, ack)
 
-def send_batch_ack(sock, success: bool):
+def send_batch_ack(sock, last_processed_bet_number: int):
     """
-    Envía un ACK para un batch de apuestas.
-    success: True si todas las apuestas fueron procesadas correctamente, False en caso contrario.
+    Envía un ACK para un batch de apuestas con el número de la última apuesta procesada exitosamente.
+    last_processed_bet_number: Número de la última apuesta procesada correctamente (0 si ninguna fue procesada)
     """
-    # Construcción manual del byte de ACK (1 para éxito, 0 para fallo)
-    ack = bytes([1 if success else 0])
+    # Enviar 4 bytes big-endian con el número de la última apuesta procesada
+    n = last_processed_bet_number
+    ack = bytes([
+        (n >> 24) & 0xFF,
+        (n >> 16) & 0xFF,
+        (n >> 8) & 0xFF,
+        n & 0xFF
+    ])
     _send_all(sock, ack)
 
 def _send_all(sock, data: bytes):
