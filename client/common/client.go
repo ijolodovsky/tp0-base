@@ -121,7 +121,7 @@ func (c *Client) processBets() {
 	}
 
 		log.Infof("action: all_bets_sent | result: success | client_id: %v | total_processed: %d", c.config.ID, totalBets)
-		time.Sleep(1 * time.Second)
+
 }
 
 // createBatch crea un batch respetando el límite de cantidad
