@@ -2,9 +2,10 @@ import signal
 import socket
 import logging
 import threading
+from concurrent.futures import ThreadPoolExecutor
 
 from common.utils import store_bets, load_bets, has_won
-from protocol.protocol import read_message, send_batch_ack, send_finish_ack, send_winners_list, parse_bet_batch_content
+from protocol.protocol import read_message, send_winners_list, parse_bet_batch_content, send_ack
 
 class Server:
     def __init__(self, port, listen_backlog, expected_agencies):
@@ -19,6 +20,12 @@ class Server:
         self.sorteoRealizado = False
         self.pending_winners_queries = []  # Lista de (socket, agency_id) esperando ganadores
         self.lock = threading.Lock()
+        
+        # Lock específico para proteger acceso a las funciones de utils
+        self.file_lock = threading.Lock()
+        
+        # Pool de threads para manejar clientes concurrentemente
+        self.thread_pool = ThreadPoolExecutor(max_workers=10)  # Máximo 10 clientes simultáneos
 
         signal.signal(signal.SIGTERM, self.handle_sigterm)
         
@@ -28,14 +35,13 @@ class Server:
     def run(self):
         while self.running:
             try:
-                hilo = threading.Thread(target=self.__accept_client)
-                hilo.start()
+                # Aceptar la conexión en el thread principal
+                client_sock, addr = self._server_socket.accept()
+                
+                # Enviar el cliente al pool de threads
+                self.thread_pool.submit(self.__handle_client_connection, client_sock)
             except OSError:
                 break
-
-    def __accept_client(self):
-        client_sock, addr = self._server_socket.accept()
-        self.__handle_client_connection(client_sock)
 
     def handle_sigterm(self, signum, frame):
         self.running = False
@@ -45,6 +51,9 @@ class Server:
         
         # Cerrar el socket del servidor
         self._server_socket.close()
+        
+        # Cerrar el pool de threads de forma ordenada
+        self.thread_pool.shutdown(wait=True)
 
     def __handle_client_connection(self, client_sock):
         """
@@ -64,7 +73,9 @@ class Server:
 
                     all_success = True
                     try:
-                        store_bets(bets)
+                        # Proteger escritura al archivo CSV con lock
+                        with self.file_lock:
+                            store_bets(bets)
                     except Exception as e:
                         all_success = False
                     
@@ -74,7 +85,7 @@ class Server:
                     else:
                         logging.info(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)}")
                     
-                    send_batch_ack(client_sock, all_success)
+                    send_ack(client_sock, all_success)
                 
                 elif msg_type == 'FIN_APUESTAS':
                     agency_id = content
@@ -86,7 +97,7 @@ class Server:
                             logging.info("action: sorteo | result: success")
                             # Responder a todos los clientes que estaban esperando ganadores
                             self.respond_pending_winners()      
-                    send_finish_ack(client_sock, True)
+                    send_ack(client_sock, True)
                     
                 elif msg_type == 'CONSULTA_GANADORES':
                     agency_id = content
@@ -116,9 +127,11 @@ class Server:
         Obtiene los DNI de los ganadores de la agencia especifica.
         """
         try:
-            bets = list(load_bets())
-            winners_dni = []
+            # Proteger lectura del archivo CSV con lock
+            with self.file_lock:
+                bets = list(load_bets())
             
+            winners_dni = []
             for bet in bets:
                 if bet.agency == agency_id and has_won(bet):
                     winners_dni.append(bet.document)

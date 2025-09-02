@@ -1,52 +1,6 @@
-import struct
 from common.utils import Bet
 from typing import List
 import logging
-
-def read_bet(sock) -> Bet:
-    """
-    Lee una apuesta enviada por el cliente usando longitud-prefijada (2 bytes) y separador '|'.
-    """
-    bets = read_bet_batch(sock)
-    if len(bets) != 1:
-        raise ValueError(f"Expected single bet but got {len(bets)}")
-    return bets[0]
-
-def read_bet_batch(sock) -> List[Bet]:
-    """
-    Lee un batch de apuestas enviadas por el cliente usando longitud-prefijada (2 bytes).
-    Cada apuesta está separada por '|' y los bets están separados por '\n'.
-    """
-    header = _read_n_bytes(sock, 2)
-    if not header:
-        raise ConnectionError("No header received")
-
-    message_length = struct.unpack('>H', header)[0]
-    data = _read_n_bytes(sock, message_length)
-    text = data.decode('utf-8')
-
-    bets = []
-    bet_lines = text.split('\n')
-    
-    for bet_line in bet_lines:
-        if not bet_line.strip():  # Skip empty lines
-            continue
-            
-        fields = bet_line.split('|')
-        if len(fields) != 6:
-            raise ValueError(f"Invalid bet received, expected 6 fields but got {len(fields)}: {bet_line}")
-
-        bet = Bet(
-            agency=fields[0],
-            first_name=fields[1],
-            last_name=fields[2],
-            document=fields[3],
-            birthdate=fields[4],
-            number=fields[5]
-        )
-        bets.append(bet)
-    
-    return bets
 
 def parse_bet_batch_content(content: str) -> List[Bet]:
     """
@@ -56,7 +10,7 @@ def parse_bet_batch_content(content: str) -> List[Bet]:
     bet_lines = content.split('\n')
     
     for bet_line in bet_lines:
-        if not bet_line.strip():  # Skip empty lines
+        if not bet_line.strip():
             continue
             
         fields = bet_line.split('|')
@@ -94,19 +48,14 @@ def _read_n_bytes(sock, n: int) -> bytes:
     
     return buf
 
-def send_ack(sock, bet: Bet):
-    """
-    Envía un ACK de 4 bytes big-endian con el número de la apuesta.
-    """
-    ack = struct.pack('>I', bet.number)
-    _send_all(sock, ack)
 
-def send_batch_ack(sock, success: bool):
+def send_ack(sock, success: bool):
     """
     Envía un ACK para un batch de apuestas.
     success: True si todas las apuestas fueron procesadas correctamente, False en caso contrario.
     """
-    ack = struct.pack('B', 1 if success else 0)
+    # ACK manual: 1 byte, 1 si éxito, 0 si no
+    ack = bytes([1 if success else 0])
     _send_all(sock, ack)
 
 def _send_all(sock, data: bytes):
@@ -130,10 +79,11 @@ def read_message(sock) -> tuple[str, str]:
     if not header:
         raise ConnectionError("No header received")
 
-    message_length = struct.unpack('>H', header)[0]
+    # Decodificar header manualmente (2 bytes big-endian)
+    message_length = (header[0] << 8) | header[1]
     data = _read_n_bytes(sock, message_length)
     text = data.decode('utf-8')
-    
+
     if text.startswith('FIN_APUESTAS|'):
         agency_id = text.split('|')[1]
         return ('FIN_APUESTAS', agency_id)
@@ -144,12 +94,6 @@ def read_message(sock) -> tuple[str, str]:
         # Es un batch de apuestas (formato actual)
         return ('BATCH_APUESTAS', text)
 
-def send_finish_ack(sock, success: bool):
-    """
-    Envía ACK para el mensaje de finalización.
-    """
-    ack = struct.pack('B', 1 if success else 0)
-    _send_all(sock, ack)
 
 def send_winners_list(sock, winners_dni: List[str], sorteoRealizado: bool):
     """
@@ -161,12 +105,17 @@ def send_winners_list(sock, winners_dni: List[str], sorteoRealizado: bool):
     elif not winners_dni:
         payload = ""
     else:
-        payload = "|".join(winners_dni)
-    
+        # Construir el string
+        payload = ""
+        for i, dni in enumerate(winners_dni):
+            payload += dni
+            if i < len(winners_dni) - 1:
+                payload += "|"
+
     data = payload.encode('utf-8')
     length = len(data)
-    
-    # Header de 2 bytes big-endian
-    header = struct.pack('>H', length)
+
+    # Header de 2 bytes big-endian manual
+    header = bytes([(length >> 8) & 0xFF, length & 0xFF])
     _send_all(sock, header)
     _send_all(sock, data)

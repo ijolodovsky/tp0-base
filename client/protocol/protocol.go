@@ -1,11 +1,9 @@
 package protocol
 
 import (
-	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
-	"strings"
 
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/model"
 )
@@ -16,9 +14,9 @@ func SendBetBatch(conn net.Conn, bets []model.Bet) error {
 		return fmt.Errorf("no bets to send")
 	}
 
-	// Crear el payload con todas las apuestas separadas por "\n"
-	var betStrings []string
-	for _, bet := range bets {
+	// Construir el payload manualmente, sin strings.Join
+	payload := ""
+	for i, bet := range bets {
 		betStr := fmt.Sprintf("%s|%s|%s|%s|%s|%s",
 			bet.AgencyId,
 			bet.Name,
@@ -27,16 +25,17 @@ func SendBetBatch(conn net.Conn, bets []model.Bet) error {
 			bet.BirthDate,
 			bet.Number,
 		)
-		betStrings = append(betStrings, betStr)
+		payload += betStr
+		if i < len(bets)-1 {
+			payload += "\n"
+		}
 	}
 
-	payload := strings.Join(betStrings, "\n")
 	data := []byte(payload)
 	length := uint16(len(data))
 
-	// Header de 2 bytes big-endian
-	header := make([]byte, 2)
-	binary.BigEndian.PutUint16(header, length)
+	// Header de 2 bytes big-endian manual
+	header := []byte{byte(length >> 8), byte(length & 0xFF)}
 
 	// Primero el header, y despues el payload
 	if err := writeAll(conn, header); err != nil {
@@ -51,12 +50,11 @@ func SendBetBatch(conn net.Conn, bets []model.Bet) error {
 
 // SendFinishConfirmation envía mensaje cuando termina el cliente de enviar todas sus apuestas (cuando no hay mas batches)
 func SendFinishConfirmation(conn net.Conn, agencyId string) error {
-	payload := fmt.Sprintf("FIN_APUESTAS|%s", agencyId)
+	payload := "FIN_APUESTAS|" + agencyId
 	data := []byte(payload)
 	length := uint16(len(data))
 
-	header := make([]byte, 2)
-	binary.BigEndian.PutUint16(header, length)
+	header := []byte{byte(length >> 8), byte(length & 0xFF)}
 
 	if err := writeAll(conn, header); err != nil {
 		return fmt.Errorf("error sending finish confirmation header: %w", err)
@@ -69,12 +67,11 @@ func SendFinishConfirmation(conn net.Conn, agencyId string) error {
 }
 
 func SendWinnersQuery(conn net.Conn, agencyId string) error {
-	payload := fmt.Sprintf("CONSULTA_GANADORES|%s", agencyId)
+	payload := "CONSULTA_GANADORES|" + agencyId
 	data := []byte(payload)
 	length := uint16(len(data))
 
-	header := make([]byte, 2)
-	binary.BigEndian.PutUint16(header, length)
+	header := []byte{byte(length >> 8), byte(length & 0xFF)}
 
 	if err := writeAll(conn, header); err != nil {
 		return fmt.Errorf("error sending winners query header: %w", err)
@@ -93,7 +90,7 @@ func ReceiveAck(conn net.Conn) (int, error) {
 		return 0, fmt.Errorf("error reading ACK: %w", err)
 	}
 
-	ackNumber := int(binary.BigEndian.Uint32(buf))
+	ackNumber := int(buf[0])<<24 | int(buf[1])<<16 | int(buf[2])<<8 | int(buf[3])
 	return ackNumber, nil
 }
 
@@ -123,8 +120,8 @@ func ReceiveWinnersList(conn net.Conn) ([]string, error) {
 		return nil, fmt.Errorf("error reading winners list header: %w", err)
 	}
 
-	// Obtener longitud del payload
-	length := binary.BigEndian.Uint16(header)
+	// Obtener longitud del payload manualmente
+	length := int(header[0])<<8 | int(header[1])
 
 	// Leer payload
 	data := make([]byte, length)
@@ -144,7 +141,17 @@ func ReceiveWinnersList(conn net.Conn) ([]string, error) {
 	}
 
 	// Parsear lista de DNIs separados por "|"
-	winners := strings.Split(response, "|")
+	winners := []string{}
+	start := 0
+	for i := 0; i < len(response); i++ {
+		if response[i] == '|' {
+			winners = append(winners, response[start:i])
+			start = i + 1
+		}
+	}
+	if start <= len(response)-1 {
+		winners = append(winners, response[start:])
+	}
 	return winners, nil
 }
 
