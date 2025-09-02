@@ -1,4 +1,3 @@
-import struct
 from common.utils import Bet
 from typing import List
 import logging
@@ -21,7 +20,7 @@ def read_bet_batch(sock) -> List[Bet]:
     if not header:
         raise ConnectionError("No header received")
 
-    message_length = struct.unpack('>H', header)[0]
+    message_length = (header[0] << 8) | header[1]
     data = _read_n_bytes(sock, message_length)
     text = data.decode('utf-8')
 
@@ -71,7 +70,13 @@ def send_ack(sock, bet: Bet):
     """
     Envía un ACK de 4 bytes big-endian con el número de la apuesta.
     """
-    ack = struct.pack('>I', bet.number)
+    n = bet.number
+    ack = bytes([
+        (n >> 24) & 0xFF,
+        (n >> 16) & 0xFF,
+        (n >> 8) & 0xFF,
+        n & 0xFF
+    ])
     _send_all(sock, ack)
 
 def send_batch_ack(sock, success: bool):
@@ -79,7 +84,8 @@ def send_batch_ack(sock, success: bool):
     Envía un ACK para un batch de apuestas.
     success: True si todas las apuestas fueron procesadas correctamente, False en caso contrario.
     """
-    ack = struct.pack('B', 1 if success else 0)
+    # Construcción manual del byte de ACK (1 para éxito, 0 para fallo)
+    ack = bytes([1 if success else 0])
     _send_all(sock, ack)
 
 def _send_all(sock, data: bytes):
