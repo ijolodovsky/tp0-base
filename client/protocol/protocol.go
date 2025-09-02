@@ -1,11 +1,9 @@
 package protocol
 
 import (
-	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
-	"strings"
 
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/model"
 )
@@ -16,9 +14,9 @@ func SendBetBatch(conn net.Conn, bets []model.Bet) error {
 		return fmt.Errorf("no bets to send")
 	}
 
-	// Crear el payload con todas las apuestas separadas por "\n"
-	var betStrings []string
-	for _, bet := range bets {
+	// Construir el payload manualmente, sin usar strings.Join
+	payload := ""
+	for i, bet := range bets {
 		betStr := fmt.Sprintf("%s|%s|%s|%s|%s|%s",
 			bet.AgencyId,
 			bet.Name,
@@ -27,16 +25,17 @@ func SendBetBatch(conn net.Conn, bets []model.Bet) error {
 			bet.BirthDate,
 			bet.Number,
 		)
-		betStrings = append(betStrings, betStr)
+		payload += betStr
+		if i < len(bets)-1 {
+			payload += "\n"
+		}
 	}
 
-	payload := strings.Join(betStrings, "\n")
 	data := []byte(payload)
 	length := uint16(len(data))
 
-	// Header de 2 bytes big-endian
-	header := make([]byte, 2)
-	binary.BigEndian.PutUint16(header, length)
+	// Serializamos el header (2 bytes big-endian) manualmente
+	header := []byte{byte(length >> 8), byte(length & 0xFF)}
 
 	// Primero el header, y despues el payload
 	if err := writeAll(conn, header); err != nil {
@@ -56,7 +55,8 @@ func ReceiveAck(conn net.Conn) (int, error) {
 		return 0, fmt.Errorf("error reading ACK: %w", err)
 	}
 
-	ackNumber := int(binary.BigEndian.Uint32(buf))
+	// Reconstruimos el uint32 big-endian manualmente
+	ackNumber := int(buf[0])<<24 | int(buf[1])<<16 | int(buf[2])<<8 | int(buf[3])
 	return ackNumber, nil
 }
 
