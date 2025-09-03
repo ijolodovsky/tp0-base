@@ -1,10 +1,7 @@
 # id: 1
 server:
   address: "server:12345"
-loop:
-  amount: 5
-  period: "5s"
 log:
-  level: "INFO"
+  level: "DEBUG"
 batch:
-  maxAmount: 10
+  maxAmount: 100

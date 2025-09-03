@@ -3,3 +3,8 @@
 
 # Executables
 bin/
+
+.data/agency*
+data/
+
+__pycache__/
