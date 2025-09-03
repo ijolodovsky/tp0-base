@@ -7,7 +7,6 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/model"
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/protocol"
