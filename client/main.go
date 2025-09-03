@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/csv"
 	"fmt"
 	"os"
 	"os/signal"
@@ -12,46 +11,9 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/common"
-	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/model"
 )
 
 var log = logging.MustGetLogger("log")
-
-// LoadBetsFromCSV carga las apuestas desde un archivo CSV
-func LoadBetsFromCSV(agencyId string) ([]model.Bet, error) {
-	filename := fmt.Sprintf("/agency-%s.csv", agencyId)
-
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, fmt.Errorf("error opening CSV file %s: %w", filename, err)
-	}
-	defer file.Close()
-
-	reader := csv.NewReader(file)
-	records, err := reader.ReadAll()
-	if err != nil {
-		return nil, fmt.Errorf("error reading CSV file: %w", err)
-	}
-
-	var bets []model.Bet
-	for i, record := range records {
-		if len(record) != 5 {
-			return nil, fmt.Errorf("invalid record in line %d: expected 5 fields, got %d", i+1, len(record))
-		}
-
-		bet := model.Bet{
-			AgencyId:  agencyId,
-			Name:      record[0],
-			LastName:  record[1],
-			Document:  record[2],
-			BirthDate: record[3],
-			Number:    record[4],
-		}
-		bets = append(bets, bet)
-	}
-
-	return bets, nil
-}
 
 // InitConfig Function that uses viper library to parse configuration parameters.
 // Viper is configured to read variables from both environment variables and the
@@ -136,14 +98,6 @@ func run() error {
 		return fmt.Errorf("error inicializando logger: %w", err)
 	}
 
-	// Cargar apuestas desde CSV
-	bets, err := LoadBetsFromCSV(v.GetString("id"))
-	if err != nil {
-		return fmt.Errorf("error cargando apuestas desde CSV: %w", err)
-	}
-
-	log.Infof("Cargadas %d apuestas desde CSV para agencia %s", len(bets), v.GetString("id"))
-
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, syscall.SIGTERM)
 
@@ -156,7 +110,7 @@ func run() error {
 		BatchMaxAmount: v.GetInt("batch.maxAmount"),
 	}
 
-	client := common.NewClient(clientConfig, bets)
+	client := common.NewClient(clientConfig)
 
 	go func() {
 		<-sigchan
