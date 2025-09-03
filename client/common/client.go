@@ -1,10 +1,12 @@
 package common
 
 import (
+	"encoding/csv"
+	"fmt"
+	"io"
 	"net"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/model"
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/protocol"
@@ -21,14 +23,12 @@ type ClientConfig struct {
 
 type Client struct {
 	config ClientConfig
-	bets   []model.Bet
 	conn   net.Conn
 }
 
-func NewClient(config ClientConfig, bets []model.Bet) *Client {
+func NewClient(config ClientConfig) *Client {
 	return &Client{
 		config: config,
-		bets:   bets,
 	}
 }
 
@@ -56,95 +56,117 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 		}
 		defer c.conn.Close()
 
-		c.processBets()
+		if err := c.processCSVFile(); err != nil {
+			log.Errorf("action: process_csv | result: fail | client_id: %v | error: %v", c.config.ID, err)
+			return
+		}
 		c.finishNotification()
 		c.consultWinners()
 	}
 }
 
-// processBets procesa todas las apuestas enviándolas en batches usando una sola conexión
-func (c *Client) processBets() {
-	maxBatchSize := c.config.BatchMaxAmount
-	totalBets := len(c.bets)
+// processCSVFile lee el CSV y procesa las apuestas en batches sin cargar todo en memoria
+func (c *Client) processCSVFile() error {
+	filename := fmt.Sprintf("/agency-%s.csv", c.config.ID)
 
-	if totalBets == 0 {
-		log.Infof("action: apuestas_enviadas | result: success | client_id: %v", c.config.ID)
-		return
+	file, err := os.Open(filename)
+	if err != nil {
+		return fmt.Errorf("error opening CSV file %s: %w", filename, err)
 	}
+	defer file.Close()
 
-	log.Infof("action: starting_batch_processing | result: success | client_id: %v | total_bets: %d | max_batch_size: %d",
-		c.config.ID, totalBets, maxBatchSize)
-
-	i := 0
+	reader := csv.NewReader(file)
+	
+	var batch []model.Bet
+	maxBatchSize := c.config.BatchMaxAmount
+	lineNumber := 0
 	batchNumber := 1
-	for i < totalBets {
-		// Crear batch respetando el límite de cantidad
-		batch := c.createBatch(i, maxBatchSize)
-
-		log.Infof("action: sending_batch | result: success | batch_number: %d | batch_size: %d | client_id: %v",
-			batchNumber, len(batch), c.config.ID)
-
-		if err := protocol.SendBetBatch(c.conn, batch); err != nil {
-			log.Errorf("action: send_batch | result: fail | client_id: %v | batch_size: %d | error: %v",
-				c.config.ID, len(batch), err)
-			return
-		}
-
-		lastProcessedNumber, err := protocol.ReceiveBatchAck(c.conn)
+	totalProcessed := 0
+	
+	log.Infof("action: starting_batch_processing | result: success | client_id: %v | max_batch_size: %d", c.config.ID, maxBatchSize)
+	
+	for {
+		record, err := reader.Read()
 		if err != nil {
-			log.Errorf("action: receive_batch_ack | result: fail | client_id: %v | error: %v", c.config.ID, err)
-			return
-		}
-
-		// Obtener el número de la última apuesta que se envió en este batch
-		expectedLastNumberStr := batch[len(batch)-1].Number
-		expectedLastNumber, err := strconv.Atoi(expectedLastNumberStr)
-		if err != nil {
-			log.Errorf("action: parse_bet_number | result: fail | client_id: %v | bet_number: %s | error: %v", 
-				c.config.ID, expectedLastNumberStr, err)
-			return
+			if err == io.EOF {
+				// Enviar el último batch si tiene datos
+				if len(batch) > 0 {
+					if err := c.sendBatch(batch, batchNumber, totalProcessed); err != nil {
+						return fmt.Errorf("error sending final batch: %w", err)
+					}
+					totalProcessed += len(batch)
+				}
+				break
+			}
+			return fmt.Errorf("error reading CSV file: %w", err)
 		}
 		
-		if lastProcessedNumber > 0 {
-			// Verificar que el servidor procesó hasta donde esperábamos
-			if lastProcessedNumber == expectedLastNumber {
-				log.Infof("action: batch_sent | result: success | client_id: %v | batch_number: %d | batch_size: %d | last_processed_bet: %d | processed: %d/%d",
-					c.config.ID, batchNumber, len(batch), lastProcessedNumber, i+len(batch), totalBets)
-			} else {
-				log.Errorf("action: batch_sent | result: partial_success | client_id: %v | batch_number: %d | batch_size: %d | expected_last: %d | actual_last: %d | processed: %d/%d",
-					c.config.ID, batchNumber, len(batch), expectedLastNumber, lastProcessedNumber, i+len(batch), totalBets)
-				// Podríamos implementar lógica de reintento aquí en el futuro
-				return
-			}
-		} else {
-			log.Errorf("action: batch_sent | result: fail | client_id: %v | batch_number: %d | batch_size: %d | no_bets_processed",
-				c.config.ID, batchNumber, len(batch))
-			return
+		lineNumber++
+		if len(record) != 5 {
+			return fmt.Errorf("invalid record in line %d: expected 5 fields, got %d", lineNumber, len(record))
 		}
 
-		i += len(batch)
-		batchNumber++
+		bet := model.Bet{
+			AgencyId:  c.config.ID,
+			Name:      record[0],
+			LastName:  record[1],
+			Document:  record[2],
+			BirthDate: record[3],
+			Number:    record[4],
+		}
+		
+		batch = append(batch, bet)
+		
+		// Cuando el batch alcanza el tamaño deseado, enviarlo
+		if len(batch) >= maxBatchSize {
+			if err := c.sendBatch(batch, batchNumber, totalProcessed); err != nil {
+				return fmt.Errorf("error sending batch at line %d: %w", lineNumber, err)
+			}
+			totalProcessed += len(batch)
+			batchNumber++
+			// Limpiar el batch para liberar memoria
+			batch = nil
+		}
 	}
 
-	log.Infof("action: all_bets_sent | result: success | client_id: %v | total_processed: %d", c.config.ID, totalBets)
+	log.Infof("action: all_bets_sent | result: success | client_id: %v | total_processed: %d", c.config.ID, totalProcessed)
+	return nil
 }
 
-// createBatch crea un batch respetando el límite de cantidad
-func (c *Client) createBatch(start int, maxBatchSize int) []model.Bet {
-	totalBets := len(c.bets)
+// sendBatch envía un batch de apuestas al servidor
+func (c *Client) sendBatch(batch []model.Bet, batchNumber int, totalProcessed int) error {
+	log.Infof("action: sending_batch | result: success | batch_number: %d | batch_size: %d | client_id: %v",
+		batchNumber, len(batch), c.config.ID)
 
-	if start >= totalBets {
-		return []model.Bet{}
+	if err := protocol.SendBetBatch(c.conn, batch); err != nil {
+		return fmt.Errorf("error sending batch: %w", err)
 	}
 
-	var batch []model.Bet
-
-	for i := start; i < totalBets && len(batch) < maxBatchSize; i++ {
-		bet := c.bets[i]
-		batch = append(batch, bet)
+	lastProcessedNumber, err := protocol.ReceiveBatchAck(c.conn)
+	if err != nil {
+		return fmt.Errorf("error receiving batch ack: %w", err)
 	}
 
-	return batch
+	// Obtener el número de la última apuesta que se envió en este batch
+	expectedLastNumberStr := batch[len(batch)-1].Number
+	expectedLastNumber, err := strconv.Atoi(expectedLastNumberStr)
+	if err != nil {
+		return fmt.Errorf("error parsing bet number %s: %w", expectedLastNumberStr, err)
+	}
+	
+	if lastProcessedNumber <= 0 {
+		return fmt.Errorf("no bets processed in batch")
+	}
+
+	// Verificar que el servidor procesó hasta donde esperábamos
+	if lastProcessedNumber == expectedLastNumber {
+		log.Infof("action: batch_sent | result: success | client_id: %v | batch_number: %d | batch_size: %d | last_processed_bet: %d | processed: %d",
+			c.config.ID, batchNumber, len(batch), lastProcessedNumber, totalProcessed + len(batch))
+	} else {
+		return fmt.Errorf("server processed %d but expected %d", lastProcessedNumber, expectedLastNumber)
+	}
+
+	return nil
 }
 
 // finishNotification envía notificación al servidor de que terminó de enviar apuestas
@@ -191,13 +213,11 @@ func (c *Client) consultWinners() {
 }
 
 func (c *Client) Stop() {
-	// Pequeño delay para evitar terminación simultánea
-	clientID := c.config.ID
 
 	if c.conn != nil {
 		c.conn.Close()
 		log.Infof("action: close_connection | result: success | client_id: %v", c.config.ID)
 	}
 
-	log.Infof("action: exit | result: success | client_id: %v", c.config.ID)
+	log.Infof("actionn: exit | result: success | client_id: %v", c.config.ID)
 }

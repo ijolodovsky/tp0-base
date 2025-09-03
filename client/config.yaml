@@ -4,4 +4,4 @@ server:
 log:
   level: "DEBUG"
 batch:
-  maxAmount: 80
+  maxAmount: 100
