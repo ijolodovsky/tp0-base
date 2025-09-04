@@ -98,6 +98,18 @@ def __handle_client_connection(self, client_sock):
             send_winners_list(client_sock, winners, sorteoRealizado=True)
 ```
 
+### Como ejecutarlo
+1. Generar el docker compose con varios clientes
+```bash
+./generar-compose.sh docker-compose-dev.yaml 5
+```
+2. Ubicar los archivos de cada agencia en la carpeta .data con el formato `agency-{id}.cs`
+3. Configurar el tamaño maximo del batch en `config.yaml`
+4. Levantar los contenedores
+```bash
+make docker-compose-up
+```
+
 ## EJ7
 Modifiqué la lógica de clientes y servidor para soportar la notificación de fin de apuestas y la consulta de ganadores por agencia:
 
@@ -248,6 +260,8 @@ def respond_pending_winners(self):
     self.client_connections.clear()
 ```
 
+### Se ejecuta igual que el ejercicio 8
+
 ## EJ6
 Modifiqué los clientes para que envíen apuestas en batchs (chunks), permitiendo registrar varias apuestas en una sola consulta al servidor y optimizando la transmisión y el procesamiento.
 
@@ -331,6 +345,18 @@ def read_bet_batch(sock) -> List[Bet]:
                   document=fields[3], number=fields[5])
         bets.append(bet)
     return bets
+```
+
+### Como ejecutarlo
+1. Generar el docker compose con varios clientes
+```bash
+./generar-compose.sh docker-compose-dev.yaml 5
+```
+2. Ubicar los archivos de cada agencia en la carpeta .data con el formato `agency-{id}.cs`
+3. Configurar el tamaño maximo del batch en `config.yaml`
+4. Levantar los contenedores
+```bash
+make docker-compose-up
 ```
 
 ## EJ5
@@ -421,6 +447,9 @@ def __handle_client_connection(self, client_sock):
     finally:
         client_sock.close()
 ```
+
+### Como ejecutarlo
+1. Se deben configurar las variables de entorno en el docker compose.
 
 ## EJ4
 Tanto el servidor como el cliente fueron modificados para implementar un shutdown graceful al recibir la señal SIGTERM:
